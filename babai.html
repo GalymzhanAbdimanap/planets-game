@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1b1464">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Бабай</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👻</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<script src="kit.js"></script>
+<script>
+'use strict';
+/* =========================================================
+   БАБАЙ — три нестрашные страшилки:
+   light — фонарик в тёмной комнате, boo — напугай Бабая, sleep — уложи спать
+   ========================================================= */
+const TX = {
+  light: {
+    intro:{ru:'В комнате темно. Чьи это глазки? Посвети фонариком!', kk:'Бөлме қараңғы. Бұл кімнің көздері? Қол шаммен жарық түсір!'},
+    found:{ru:['Ой! Меня нашли!','Хи-хи! Это я, бабайка!','Ай, щекотно от света!'], kk:['Ой! Мені тауып алдың!','Хи-хи! Бұл мен, бабай!','Ай, жарықтан қытығым келеді!']},
+    sock:{ru:'Это просто носок!', kk:'Бұл жай ғана шұлық!'},
+    teddy:{ru:'Это плюшевый мишка!', kk:'Бұл — ойыншық аю!'},
+    cat:{ru:'Это котик. Мяу!', kk:'Бұл — мысық. Мияу!'},
+    done:{ru:'Ура! Все бабайки нашлись! В темноте совсем не страшно.', kk:'Алақай! Барлық бабайлар табылды! Қараңғыда мүлдем қорқынышты емес.'}
+  },
+  boo: {
+    intro:{ru:'Бабай крадётся. Нажми на него и напугай!', kk:'Бабай ұрланып келе жатыр. Оны басып, қорқыт!'},
+    react:{ru:['Ой-ой-ой! Как страшно!','Мамочки!','Ай! Я боюсь!','Спасите! Помогите!'], kk:['Ой-ой-ой! Қандай қорқынышты!','Апатай!','Ай! Мен қорқамын!','Құтқарыңдар!']},
+    boo:{ru:'БУ!', kk:'БУ!'}
+  },
+  sleep: {
+    s0:{ru:'Бабай хочет спать. Сначала почистим ему зубки! Води щёткой по зубам.', kk:'Бабайдың ұйқысы келді. Алдымен тісін тазалайық! Щётканы тістерінің үстімен жүргіз.'},
+    d0:{ru:'Зубки чистые и блестят! Теперь дай Бабаю мишку.', kk:'Тістері тап-таза, жарқырап тұр! Енді Бабайға аюды бер.'},
+    d1:{ru:'Бабай обнял мишку. Теперь выключи лампу.', kk:'Бабай аюды құшақтады. Енді шамды өшір.'},
+    d2:{ru:'Спокойной ночи, Бабай! Тсс, он спит.', kk:'Қайырлы түн, Бабай! Тсс, ол ұйықтап жатыр.'}
+  }
+};
+const BCOL = ['#7b5cd6','#4f8fe0','#3fb58a','#e0708f','#f09a3e'];
+
+/* ---------- персонаж ---------- */
+function drawHat(c, kind, x, y, s, rot = 0){
+  c.save(); c.translate(x, y); c.rotate(rot);
+  if (kind === 'cap') {
+    c.fillStyle = '#e8483f'; c.beginPath(); c.arc(0, 0, s*.5, Math.PI, 0); c.fill();
+    rr(c, -s*.1, -s*.06, s*.85, s*.13, s*.06); c.fill();
+    circ(c, 0, -s*.5, s*.08, '#fff');
+  } else if (kind === 'pot') {
+    rr(c, -s*.5, -s*.5, s, s*.5, s*.08); c.fillStyle = '#aab3c5'; c.fill();
+    rr(c, -s*.62, -s*.52, s*1.24, s*.12, s*.06); c.fillStyle = '#8891a6'; c.fill();
+    circ(c, 0, -s*.6, s*.09, '#5d6579');
+  } else if (kind === 'party') {
+    c.fillStyle = '#ffd23f'; c.beginPath(); c.moveTo(-s*.4, 0); c.lineTo(0, -s*.95); c.lineTo(s*.4, 0); c.closePath(); c.fill();
+    c.fillStyle = '#ff6fa3'; c.beginPath(); c.moveTo(-s*.28, -s*.28); c.lineTo(-s*.16, -s*.56); c.lineTo(s*.16, -s*.56); c.lineTo(s*.28, -s*.28); c.closePath(); c.fill();
+    circ(c, 0, -s*.97, s*.12, '#7fe3ff');
+  }
+  c.restore();
+}
+function drawBabai(c, x, y, s, o = {}){
+  const col = o.pale ? '#e9e6f7' : (o.color || BCOL[0]);
+  c.save(); c.translate(x, y);
+  if (o.rot) c.rotate(o.rot);
+  if (o.sx) c.scale(o.sx, o.sy || 1);
+  const armY = o.mood === 'scared' ? -s*.45 : s*.2;
+  // ножки
+  for (const sd of [-1, 1]) { ell(c, sd*s*.4, s*.95, s*.28, s*.15, col); ell(c, sd*s*.4, s*.95, s*.28, s*.15, 'rgba(0,0,0,.25)'); }
+  // мех
+  c.fillStyle = col;
+  const n = 16, bump = o.mood === 'scared' ? .3 : .2;
+  for (let i = 0; i < n; i++) { const a = i/n*Math.PI*2; c.beginPath(); c.arc(Math.cos(a)*s*.82, Math.sin(a)*s*.9, s*bump, 0, 7); c.fill(); }
+  c.beginPath(); c.ellipse(0, 0, s*.9, s*.98, 0, 0, 7); c.fill();
+  // ручки
+  for (const sd of [-1, 1]) circ(c, sd*s*1.0, armY, s*.2, col);
+  // рожки
+  c.fillStyle = '#ffe9b0';
+  for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(sd*s*.3, -s*.88); c.lineTo(sd*s*.56, -s*1.32); c.lineTo(sd*s*.66, -s*.78); c.closePath(); c.fill(); }
+  ell(c, 0, s*.42, s*.5, s*.42, 'rgba(255,255,255,.16)');
+  c.fillStyle = shade(c, 0, 0, s); c.beginPath(); c.ellipse(0, 0, s*.9, s*.98, 0, 0, 7); c.fill();
+  // лицо
+  const fo = {mood:o.mood, seed:o.seed || 0, lookX:ptr.x - x, lookY:ptr.y - y};
+  if (o.mouth === 'open') {
+    drawFace(c, 0, -s*.3, s*.6, {...fo, mood:'normal', noMouth:true});
+    const my = s*.3;
+    ell(c, 0, my, s*.5, s*.36, '#5a1d2d');
+    ell(c, 0, my + s*.2, s*.26, s*.13, '#ff8fa3');
+    // зубы: жёлтые пятна исчезают, когда их чистят
+    for (let i = 0; i < 4; i++) {
+      const tx = (i - 1.5)*s*.2;
+      rr(c, tx - s*.085, my - s*.33, s*.17, s*.22, s*.05); c.fillStyle = '#fff'; c.fill();
+      const dirt = 1 - clamp((o.clean || 0)*1.2 - i*.05, 0, 1);
+      if (dirt > 0) { c.globalAlpha = dirt; rr(c, tx - s*.085, my - s*.33, s*.17, s*.22, s*.05); c.fillStyle = '#d9b13f'; c.fill(); circ(c, tx, my - s*.2, s*.04, '#8a6a1f'); c.globalAlpha = 1; }
+    }
+  } else {
+    drawFace(c, 0, -s*.12, s*.62, fo);
+    if (!o.mood || o.mood === 'normal') { // два смешных зуба
+      c.fillStyle = '#fff';
+      for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(sd*s*.06, s*.09); c.lineTo(sd*s*.12, s*.2); c.lineTo(sd*s*.18, s*.08); c.closePath(); c.fill(); }
+    }
+  }
+  if (o.hat && o.hat !== 'none') drawHat(c, o.hat, 0, -s*.92, s*.9);
+  c.restore();
+}
+function drawTeddy(c, x, y, s){
+  const b = '#b07a4a', l = '#e3c19a';
+  for (const sd of [-1, 1]) { circ(c, x + sd*s*.5, y - s*.55, s*.24, b); circ(c, x + sd*s*.5, y - s*.55, s*.12, l); }
+  ell(c, x, y + s*.55, s*.55, s*.5, b); ell(c, x, y + s*.6, s*.3, s*.28, l);
+  circ(c, x, y - s*.1, s*.55, b); ell(c, x, y + s*.08, s*.24, s*.18, l);
+  circ(c, x - s*.2, y - s*.2, s*.06, '#2b1b3d'); circ(c, x + s*.2, y - s*.2, s*.06, '#2b1b3d'); circ(c, x, y + s*.02, s*.07, '#2b1b3d');
+}
+function drawSock(c, x, y, s){
+  c.save(); c.translate(x, y); c.rotate(-.2);
+  rr(c, -s*.3, -s*.8, s*.6, s*1.2, s*.2); c.fillStyle = '#ff7f9f'; c.fill();
+  rr(c, -s*.3, s*.0, s*1.1, s*.55, s*.27); c.fill();
+  c.fillStyle = '#fff'; c.fillRect(-s*.3, -s*.62, s*.6, s*.14); c.fillRect(-s*.3, -s*.35, s*.6, s*.14);
+  c.restore();
+}
+function drawCat(c, x, y, s, sleeping){
+  const g = '#9aa0ab';
+  ell(c, x, y + s*.5, s*.75, s*.45, g);
+  c.fillStyle = g;
+  for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(x + sd*s*.15, y - s*.45); c.lineTo(x + sd*s*.5, y - s*.85); c.lineTo(x + sd*s*.58, y - s*.25); c.closePath(); c.fill(); }
+  circ(c, x, y - s*.1, s*.55, g);
+  drawFace(c, x, y - s*.08, s*.5, {mood:sleeping ? 'sleep' : 'normal', noCheeks:true});
+  c.fillStyle = '#ff8fa3'; c.beginPath(); c.moveTo(x - s*.06, y - s*.02); c.lineTo(x + s*.06, y - s*.02); c.lineTo(x, y + s*.05); c.closePath(); c.fill();
+}
+
+/* =========================================================
+   ФОНАРИК
+   ========================================================= */
+const R = {s:40, floorY:0, spots:[]};      // геометрия комнаты
+let fl = {spots:[], lx:0, ly:0, left:3, done:false, dark:1, dance:0};
+let dk = null, dkc = null;
+function roomLayout(){
+  const a = area;
+  const s = R.s = Math.min(a.w/8.5, a.h/9);
+  const fy = R.floorY = a.y0 + a.h*.6;
+  R.win = {x:a.x0 + a.w*.5, y:a.y0 + s*2.0, w:s*2.6};
+  R.ward = {x:a.x0 + a.w*.16, b:fy + s*.5, w:s*2.3, h:s*4.4};
+  R.bed = {x:a.x0 + a.w*.69, b:fy + s*.9, w:Math.min(s*4.2, a.w*.5)};
+  R.box = {x:a.x0 + a.w*.3, b:a.y0 + a.h*.93, w:s*1.9};
+  R.plant = {x:a.x0 + a.w*.9, b:a.y0 + a.h*.93};
+  R.spots = [
+    {x:R.ward.x + s*.12, y:R.ward.b - s*2.6},
+    {x:R.bed.x - R.bed.w*.12, y:R.bed.b - s*.28},
+    {x:R.win.x + R.win.w*.62, y:R.win.y + s*.2},
+    {x:R.box.x, y:R.box.b - s*1.25},
+    {x:R.plant.x - s*.15, y:R.plant.b - s*1.7}
+  ];
+  fl.spots.forEach((sp, i) => { sp.x = R.spots[i].x; sp.y = R.spots[i].y; });
+  dk = document.createElement('canvas'); dk.width = Math.ceil(W/2); dk.height = Math.ceil(H/2); dkc = dk.getContext('2d');
+}
+function startLight(){
+  const kinds = shuffle(['babai','babai','babai', ...shuffle(['sock','teddy','cat']).slice(0, 2)]);
+  const cols = shuffle(BCOL.slice());
+  fl = {lx:area.cx, ly:area.cy, left:3, done:false, dark:1, dance:0,
+    spots:kinds.map((k, i) => ({kind:k, x:R.spots[i].x, y:R.spots[i].y, hold:0, found:false, pop:0, t:0, color:cols[i], gone:false}))};
+  speak(L(TX.light.intro));
+}
+function updateLight(dt){
+  const s = R.s;
+  for (const sp of fl.spots) {
+    if (!sp.found) {
+      if (!fl.done && Math.hypot(fl.lx - sp.x, fl.ly - sp.y) < s*1.25) sp.hold += dt; else sp.hold = Math.max(0, sp.hold - dt);
+      if (sp.hold > .35) revealSpot(sp);
+    } else { sp.pop = Math.min(1, sp.pop + dt/.35); sp.t += dt; }
+  }
+  if (fl.done) { fl.dark = Math.max(0, fl.dark - dt/1.2); fl.dance += dt; }
+}
+function revealSpot(sp){
+  sp.found = true; sp.t = 0;
+  if (sp.kind === 'babai') {
+    sfx.boing(); setTimeout(() => sfx.giggle(), 350);
+    burst(sp.x, sp.y - R.s, 14, .8);
+    fl.left--;
+    if (fl.left === 0) {
+      fl.done = true;
+      speak(pick(L(TX.light.found)), () => { celebrate(); addStar(); speak(L(TX.light.done), () => { if (mode === 'light') showAgain(startLight); }); });
+    } else speak(pick(L(TX.light.found)));
+  } else {
+    sfx.open(); if (sp.kind === 'cat') setTimeout(() => sfx.meow(), 300);
+    speak(L(TX.light[sp.kind]));
+  }
+}
+function drawRoom(c){
+  const a = area, s = R.s, fy = R.floorY;
+  // стена и пол
+  const wg = c.createLinearGradient(0, 0, 0, fy); wg.addColorStop(0, '#6a58b5'); wg.addColorStop(1, '#55449a');
+  c.fillStyle = wg; c.fillRect(0, 0, W, fy);
+  c.fillStyle = 'rgba(255,255,255,.07)';
+  for (let yy = s*.6; yy < fy; yy += s*1.5) for (let xx = ((yy/(s*1.5)) % 2)*s*.75; xx < W; xx += s*1.5) { starPath(c, xx, yy, s*.13, 0); c.fill(); }
+  c.fillStyle = '#9a6842'; c.fillRect(0, fy, W, H - fy);
+  c.strokeStyle = 'rgba(60,30,10,.25)'; c.lineWidth = 2;
+  for (let yy = fy + s*.9; yy < H; yy += s*.9) { c.beginPath(); c.moveTo(0, yy); c.lineTo(W, yy); c.stroke(); }
+  c.fillStyle = '#e9dcc5'; c.fillRect(0, fy - s*.18, W, s*.18);
+  // окно с луной
+  const w = R.win;
+  rr(c, w.x - w.w/2 - s*.15, w.y - w.w/2 - s*.15, w.w + s*.3, w.w + s*.3, s*.2); c.fillStyle = '#f3ead8'; c.fill();
+  rr(c, w.x - w.w/2, w.y - w.w/2, w.w, w.w, s*.1); c.fillStyle = '#1b1f5e'; c.fill();
+  circ(c, w.x - w.w*.15, w.y - w.w*.12, w.w*.2, '#fff3b0'); circ(c, w.x - w.w*.07, w.y - w.w*.17, w.w*.17, '#1b1f5e');
+  c.fillStyle = '#fff'; for (const [dx, dy] of [[.25,-.3],[.3,.2],[-.3,.3],[.05,.05]]) { starPath(c, w.x + dx*w.w, w.y + dy*w.w, s*.09, 0); c.fill(); }
+  c.fillStyle = '#f3ead8'; c.fillRect(w.x - s*.06, w.y - w.w/2, s*.12, w.w); c.fillRect(w.x - w.w/2, w.y - s*.06, w.w, s*.12);
+  // штора
+  c.fillStyle = '#e0708f';
+  c.beginPath(); c.moveTo(w.x + w.w*.3, w.y - w.w/2 - s*.3); c.lineTo(w.x + w.w*.95, w.y - w.w/2 - s*.3);
+  c.lineTo(w.x + w.w*.95, w.y + w.w*.75); c.quadraticCurveTo(w.x + w.w*.6, w.y + w.w*.6, w.x + w.w*.38, w.y + w.w*.75); c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(120,30,60,.35)'; c.lineWidth = 2;
+  for (const k of [.5, .68, .84]) { c.beginPath(); c.moveTo(w.x + w.w*k, w.y - w.w/2 - s*.2); c.lineTo(w.x + w.w*k, w.y + w.w*.65); c.stroke(); }
+  c.fillStyle = '#8a5a3c'; c.fillRect(w.x - w.w*.75, w.y - w.w/2 - s*.42, w.w*1.85, s*.13);
+  // шкаф
+  const wd = R.ward;
+  rr(c, wd.x - wd.w/2, wd.b - wd.h, wd.w, wd.h, s*.15); c.fillStyle = '#b37a45'; c.fill();
+  rr(c, wd.x - wd.w/2 + s*.12, wd.b - wd.h + s*.15, wd.w/2 - s*.2, wd.h - s*.5, s*.1); c.fillStyle = '#c98d55'; c.fill();
+  rr(c, wd.x + s*.3, wd.b - wd.h + s*.15, wd.w/2 - s*.42, wd.h - s*.5, s*.1); c.fill();
+  c.fillStyle = '#23143a'; c.fillRect(wd.x - s*.08, wd.b - wd.h + s*.15, s*.4, wd.h - s*.5);   // приоткрытая дверца
+  circ(c, wd.x - s*.22, wd.b - wd.h*.5, s*.08, '#ffd23f'); circ(c, wd.x + s*.46, wd.b - wd.h*.5, s*.08, '#ffd23f');
+  // кровать
+  const b = R.bed;
+  c.fillStyle = '#23143a'; c.fillRect(b.x - b.w/2 + s*.15, b.b - s*.55, b.w - s*.3, s*.55);      // темнота под кроватью
+  c.fillStyle = '#8a5a3c'; c.fillRect(b.x - b.w/2, b.b - s*.55, s*.18, s*.55); c.fillRect(b.x + b.w/2 - s*.18, b.b - s*.55, s*.18, s*.55);
+  rr(c, b.x + b.w/2 - s*.3, b.b - s*2.6, s*.4, s*2.1, s*.15); c.fillStyle = '#a8703e'; c.fill();
+  rr(c, b.x - b.w/2, b.b - s*1.6, b.w, s*1.1, s*.25); c.fillStyle = '#7fc8f0'; c.fill();
+  rr(c, b.x - b.w/2, b.b - s*1.6, b.w*.62, s*1.1, s*.25); c.fillStyle = '#ffd23f'; c.fill();
+  c.fillStyle = 'rgba(255,255,255,.5)'; for (const k of [.12, .3, .48]) circ(c, b.x - b.w/2 + b.w*k, b.b - s*1.05, s*.1, 'rgba(255,255,255,.5)');
+  rr(c, b.x + b.w*.18, b.b - s*1.95, b.w*.26, s*.55, s*.25); c.fillStyle = '#fff'; c.fill();
+  // коврик
+  ell(c, a.x0 + a.w*.58, a.y0 + a.h*.9, a.w*.17, s*.45, '#4fb8a0'); ell(c, a.x0 + a.w*.58, a.y0 + a.h*.9, a.w*.11, s*.27, '#7fdcc4');
+  // ящик с игрушками
+  const x = R.box;
+  rr(c, x.x - x.w/2, x.b - s*1.1, x.w, s*1.1, s*.14); c.fillStyle = '#e8483f'; c.fill();
+  c.fillStyle = '#23143a'; c.fillRect(x.x - x.w/2 + s*.12, x.b - s*1.22, x.w - s*.24, s*.22);
+  starPath(c, x.x, x.b - s*.5, s*.3, 0); c.fillStyle = '#ffd23f'; c.fill();
+  // цветок
+  const p = R.plant;
+  c.fillStyle = '#3fa062';
+  for (const [dx, dy, rot] of [[-.5,-1.5,-.5],[.45,-1.6,.5],[0,-2.0,0],[-.8,-.9,-1],[.75,-1.0,1]]) { c.beginPath(); c.ellipse(p.x + dx*s, p.b + dy*s, s*.3, s*.75, rot, 0, 7); c.fill(); }
+  c.fillStyle = '#d98a4a'; c.beginPath(); c.moveTo(p.x - s*.55, p.b - s*.85); c.lineTo(p.x + s*.55, p.b - s*.85); c.lineTo(p.x + s*.4, p.b); c.lineTo(p.x - s*.4, p.b); c.closePath(); c.fill();
+}
+function drawSpotThing(c, sp){
+  const s = R.s, k = easeBack(sp.pop), y = sp.y - s*.5*k;
+  if (sp.kind === 'babai') {
+    if (sp.gone) return;
+    let x = sp.x, yy = y, mood = sp.t < .5 ? 'scared' : 'happy';
+    if (sp.t > 1.1) { // вприпрыжку убегает за край
+      const dir = sp.x < area.cx ? -1 : 1, t = sp.t - 1.1;
+      x += dir*t*s*7; yy -= Math.abs(Math.sin(t*9))*s*.6;
+      if (x < -s*2 || x > W + s*2) sp.gone = true;
+    }
+    drawBabai(c, x, yy, s*1.05*k, {color:sp.color, mood, seed:sp.x});
+  } else if (sp.kind === 'sock') drawSock(c, sp.x, y, s*.8*k);
+  else if (sp.kind === 'teddy') drawTeddy(c, sp.x, y, s*.85*k);
+  else drawCat(c, sp.x, y, s*.85*k, false);
+}
+function renderLight(){
+  const c = ctx, s = R.s;
+  drawRoom(c);
+  for (const sp of fl.spots) if (sp.found) drawSpotThing(c, sp);
+  if (fl.done) { // бабайки танцуют посреди комнаты
+    const bs = fl.spots.filter(sp => sp.kind === 'babai');
+    bs.forEach((sp, i) => {
+      const k = clamp(fl.dance - .6 - i*.15, 0, 1);
+      if (k <= 0) return;
+      const x = area.cx + (i - 1)*s*2.1, y = area.y0 + area.h*.74 - Math.abs(Math.sin(now*5 + i))*s*.5;
+      shadow(c, x, area.y0 + area.h*.74 + s*1.0, s*.8*k);
+      drawBabai(c, x, y, s*.95*easeBack(k), {color:sp.color, mood:'happy', hat:'party'});
+    });
+  }
+  // темнота с дыркой от фонарика
+  if (fl.dark > 0) {
+    dkc.setTransform(.5, 0, 0, .5, 0, 0);
+    dkc.globalCompositeOperation = 'source-over'; dkc.clearRect(0, 0, W, H);
+    dkc.fillStyle = `rgba(6,6,28,${.95*fl.dark})`; dkc.fillRect(0, 0, W, H);
+    dkc.globalCompositeOperation = 'destination-out';
+    const r = s*2.7 + Math.sin(now*9)*s*.04;
+    const g = dkc.createRadialGradient(fl.lx, fl.ly, r*.3, fl.lx, fl.ly, r);
+    g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    dkc.fillStyle = g; dkc.beginPath(); dkc.arc(fl.lx, fl.ly, r, 0, 7); dkc.fill();
+    c.drawImage(dk, 0, 0, W, H);
+    const lg = c.createRadialGradient(fl.lx, fl.ly, 0, fl.lx, fl.ly, r);
+    lg.addColorStop(0, `rgba(255,240,170,${.16*fl.dark})`); lg.addColorStop(1, 'rgba(255,240,170,0)');
+    c.fillStyle = lg; c.beginPath(); c.arc(fl.lx, fl.ly, r, 0, 7); c.fill();
+    // глазки в темноте
+    c.globalAlpha = fl.dark;
+    for (const sp of fl.spots) {
+      if (sp.found) continue;
+      const er = s*.17, bl = blinkNow(sp.x*.01 + sp.y*.02);
+      let lx = fl.lx - sp.x, ly = fl.ly - sp.y; const d = Math.hypot(lx, ly) || 1; lx /= d; ly /= d;
+      for (const sd of [-1, 1]) {
+        const ex = sp.x + sd*er*1.25;
+        if (bl) { c.strokeStyle = '#fff6b0'; c.lineWidth = 3; c.beginPath(); c.moveTo(ex - er*.8, sp.y); c.lineTo(ex + er*.8, sp.y); c.stroke(); }
+        else { circ(c, ex, sp.y, er, '#fff6b0'); circ(c, ex + lx*er*.35, sp.y + ly*er*.35, er*.5, '#1a1030'); }
+      }
+    }
+    c.globalAlpha = 1;
+  }
+  // счётчик найденных бабаек
+  const n = 3, found = 3 - fl.left, cy = area.y0 + s*.2;
+  for (let i = 0; i < n; i++) {
+    const x = area.cx + (i - 1)*s*.85;
+    c.globalAlpha = i < found ? 1 : .35;
+    drawBabai(c, x, cy, s*.28, {color:i < found ? BCOL[i] : '#8888aa', mood:i < found ? 'happy' : 'normal'});
+  }
+  c.globalAlpha = 1;
+}
+
+/* =========================================================
+   БУ!
+   ========================================================= */
+let boo = {b:null, hat:null, sky:[]};
+function newBabai(){
+  const dir = Math.random() < .5 ? 1 : -1, s = Math.min(area.w, area.h)*.17;
+  boo.b = {x:dir > 0 ? area.x0 - s*1.5 : area.x1 + s*1.5, dir, color:pick(BCOL), hat:pick(['cap','pot','party','cap']),
+    state:'walk', t:0, kind:0, seed:Math.random()*9};
+}
+function startBoo(){
+  boo.sky = Array.from({length:40}, () => ({x:Math.random(), y:Math.random()*.55, r:rand(.8, 2.2), ph:Math.random()*6}));
+  boo.hat = null; newBabai();
+  speak(L(TX.boo.intro));
+}
+function booGeom(){ const s = Math.min(area.w, area.h)*.17; return {s, gy:area.y0 + area.h*.74}; }
+function updateBoo(dt){
+  const b = boo.b, {s} = booGeom();
+  if (!b) return;
+  b.t += dt;
+  if (b.state === 'walk') {
+    b.x += b.dir*s*.75*dt;
+    if (b.x < area.x0 - s*2 || b.x > area.x1 + s*2) newBabai();
+  } else if (b.state === 'scared') {
+    if (b.t > 1.5) { b.state = 'flee'; b.t = 0; b.dir *= -1; }
+  } else if (b.state === 'flee') {
+    b.x += b.dir*s*7*dt;
+    if (Math.random() < .5) puff(b.x - b.dir*s*.6, booGeom().gy + s*.9, 'rgba(255,255,255,.6)', 1, {r:rand(3, 7)});
+    if (b.x < -s*2 || b.x > W + s*2) newBabai();
+  }
+  const h = boo.hat;
+  if (h) { h.vy += s*14*dt; h.x += h.vx*dt; h.y += h.vy*dt; h.rot += h.vr*dt; if (h.y > H + 100) boo.hat = null; }
+}
+function renderBoo(){
+  const c = ctx, a = area, {s, gy} = booGeom();
+  const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#15104a'); g.addColorStop(.7, '#3d2d85'); g.addColorStop(1, '#5a3d9a');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  for (const st of boo.sky) { c.globalAlpha = .4 + .6*Math.abs(Math.sin(now*1.3 + st.ph)); c.fillStyle = '#fff'; starPath(c, st.x*W, st.y*H, st.r*1.5, 0); c.fill(); }
+  c.globalAlpha = 1;
+  circ(c, a.x0 + a.w*.8, a.y0 + a.h*.16, s*.7, '#fff3b0'); circ(c, a.x0 + a.w*.8 - s*.2, a.y0 + a.h*.16 - s*.15, s*.14, 'rgba(220,200,120,.6)');
+  circ(c, a.x0 + a.w*.8 + s*.22, a.y0 + a.h*.16 + s*.2, s*.1, 'rgba(220,200,120,.6)');
+  // холмы, дом, забор, трава
+  ell(c, a.x0 + a.w*.25, gy + s*1.2, a.w*.5, s*2.6, '#2a2468'); ell(c, a.x0 + a.w*.8, gy + s*1.2, a.w*.45, s*2.0, '#332a78');
+  const hx = a.x0 + a.w*.22, hy = gy + s*.6;
+  c.fillStyle = '#40348a'; c.fillRect(hx - s*1.1, hy - s*2.3, s*2.2, s*2.3);
+  c.beginPath(); c.moveTo(hx - s*1.4, hy - s*2.3); c.lineTo(hx, hy - s*3.5); c.lineTo(hx + s*1.4, hy - s*2.3); c.closePath(); c.fillStyle = '#2a2468'; c.fill();
+  rr(c, hx - s*.4, hy - s*1.8, s*.8, s*.8, s*.1); c.fillStyle = '#ffd86b'; c.fill();
+  c.fillStyle = '#2f6b4f'; c.fillRect(0, gy + s*.85, W, H);
+  c.fillStyle = '#3d8562'; for (let x = 0; x < W; x += s*.5) { c.beginPath(); c.moveTo(x, gy + s*.9); c.lineTo(x + s*.12, gy + s*.6); c.lineTo(x + s*.24, gy + s*.9); c.fill(); }
+  const b = boo.b;
+  if (b) {
+    let y = gy, o = {color:b.color, seed:b.seed, hat:b.state === 'walk' ? b.hat : 'none'}, x = b.x;
+    if (b.state === 'walk') { y -= Math.abs(Math.sin(now*6))*s*.12; o.rot = Math.sin(now*6)*.06 + b.dir*.08; }
+    else if (b.state === 'scared') {
+      o.mood = 'scared';
+      if (b.t < .7) y -= Math.sin(Math.PI*b.t/.7)*s*1.5;
+      if (b.kind === 1) o.rot = b.t < .7 ? b.t/.7*Math.PI*2 : 0;
+      if (b.kind === 2) { o.pale = b.t > .15; x += Math.sin(now*60)*s*.05; }
+      if (b.t > .7) x += Math.sin(now*50)*s*.04;
+    } else { o.mood = 'scared'; o.rot = b.dir*.25; y -= Math.abs(Math.sin(now*18))*s*.18; }
+    shadow(c, b.x, gy + s*1.05, s*.8);
+    drawBabai(c, x, y, s, o);
+    if (b.state === 'walk' && started) ring(c, b.x, gy, s*1.35);
+  }
+  if (boo.hat) drawHat(c, boo.hat.kind, boo.hat.x, boo.hat.y, s*.9, boo.hat.rot);
+}
+function booTap(x, y){
+  const b = boo.b, {s, gy} = booGeom();
+  if (!b || b.state !== 'walk' || Math.hypot(x - b.x, y - gy) > s*1.6) return;
+  b.state = 'scared'; b.t = 0; b.kind = Math.floor(Math.random()*3);
+  boo.hat = {kind:b.hat, x:b.x, y:gy - s*.95, vx:rand(-1, 1)*s*2.5, vy:-s*9, rot:0, vr:rand(-8, 8)};
+  sfx.boing(); setTimeout(() => sfx.giggle(), 500);
+  floatText(b.x, gy - s*1.9, L(TX.boo.boo), Math.max(48, s*.9), '#ffd23f');
+  burst(b.x, gy - s*.5, 16, 1);
+  addStar();
+  speak(pick(L(TX.boo.react)));
+}
+
+/* =========================================================
+   УЛОЖИ СПАТЬ
+   ========================================================= */
+let sl = {step:0, clean:0, tx:0, ty:0, held:false, dark:0, z:0, lx:0, ly:0};
+function sleepGeom(){
+  const a = area, s = Math.min(a.w*.2, a.h*.19);
+  return {s, bx:a.cx, by:a.y0 + a.h*.43, hx:a.cx, hy:a.y1 - s*.85, lampX:a.x1 - s*1.15, lampY:a.y0 + s*1.35};
+}
+function startSleep(){
+  const g = sleepGeom();
+  sl = {step:0, clean:0, tx:g.hx, ty:g.hy, held:false, dark:0, z:0, lx:0, ly:0};
+  subLift = g.s*1.75; placeSub();
+  speak(L(TX.sleep.s0));
+}
+function updateSleep(dt){
+  const g = sleepGeom();
+  if (!sl.held && sl.step < 2) { sl.tx = lerp(sl.tx, g.hx, .15); sl.ty = lerp(sl.ty, g.hy, .15); }
+  if (sl.step === 3) {
+    sl.dark = Math.min(1, sl.dark + dt/1.2);
+    sl.z -= dt;
+    if (sl.z <= 0) { sl.z = 1.3; floatText(g.bx + g.s*.9, g.by - g.s*1.1, 'Z', g.s*.5, '#cfe0ff'); }
+  }
+}
+function sleepMove(x, y){
+  const g = sleepGeom();
+  if (!sl.held || sl.step > 1) return;
+  const moved = Math.hypot(x - sl.lx, y - sl.ly); sl.lx = x; sl.ly = y;
+  sl.tx = x; sl.ty = y - g.s*.5;
+  if (sl.step === 0) {
+    const mx = g.bx, my = g.by + g.s*.3;
+    if (Math.abs(sl.tx - mx) < g.s*.75 && Math.abs(sl.ty - my) < g.s*.6 && moved > 0) {
+      sl.clean += moved / (g.s*9);
+      if (Math.random() < .4) { puff(sl.tx + rand(-g.s*.3, g.s*.3), sl.ty, '#ffffff', 1, {r:rand(3, 7), decay:1.2}); sfx.brush(); }
+      if (sl.clean >= 1) { sl.step = 1; sl.held = false; sfx.sparkle(); burst(mx, my, 20, 1); addStar(); speak(L(TX.sleep.d0)); }
+    }
+  } else if (sl.step === 1) {
+    if (Math.hypot(sl.tx - g.bx, sl.ty - g.by) < g.s*1.2) { sl.step = 2; sl.held = false; sfx.success(); burst(g.bx, g.by, 18, 1); addStar(); speak(L(TX.sleep.d1)); }
+  }
+}
+function sleepDown(x, y){
+  const g = sleepGeom();
+  if (sl.step < 2) { sl.held = true; sl.lx = x; sl.ly = y; sfx.pick(); sleepMove(x, y); }
+  else if (sl.step === 2 && Math.hypot(x - g.lampX, y - g.lampY) < g.s*1.2) {
+    sl.step = 3; sfx.tap();
+    [392, 330, 392, 330, 392, 440, 392, 330].forEach((f, i) => tone(f, .7, {vol:.06, when:.6 + i*.55, attack:.1}));
+    addStar();
+    speak(L(TX.sleep.d2), () => { if (mode === 'sleep') showAgain(startSleep); });
+  }
+}
+function renderSleep(){
+  const c = ctx, a = area, g = sleepGeom(), s = g.s;
+  const fy = g.by + s*1.75;
+  const wg = c.createLinearGradient(0, 0, 0, fy); wg.addColorStop(0, '#8fd3e8'); wg.addColorStop(1, '#a9e0d0');
+  c.fillStyle = wg; c.fillRect(0, 0, W, fy);
+  c.fillStyle = 'rgba(255,255,255,.22)';
+  for (let yy = s*.5; yy < fy; yy += s*1.2) for (let xx = ((yy/(s*1.2)) % 2)*s*.6; xx < W; xx += s*1.2) circ(c, xx, yy, s*.09, 'rgba(255,255,255,.22)');
+  c.fillStyle = '#c99466'; c.fillRect(0, fy, W, H - fy);
+  c.fillStyle = '#f3ead8'; c.fillRect(0, fy - s*.14, W, s*.14);
+  // окно
+  const wx = a.x0 + s*1.3, wy = a.y0 + s*1.4, ww = s*1.7;
+  rr(c, wx - ww/2 - s*.1, wy - ww/2 - s*.1, ww + s*.2, ww + s*.2, s*.15); c.fillStyle = '#fff'; c.fill();
+  rr(c, wx - ww/2, wy - ww/2, ww, ww, s*.08); c.fillStyle = sl.step === 3 ? '#1b1f5e' : '#ffb27a'; c.fill();
+  circ(c, wx + ww*.1, wy - ww*.05, ww*.22, sl.step === 3 ? '#fff3b0' : '#ffd23f');
+  // кровать
+  const bw = Math.min(s*4.6, a.w*.92);
+  rr(c, g.bx - bw/2, g.by - s*1.5, bw, s*3.4, s*.35); c.fillStyle = '#a8703e'; c.fill();
+  rr(c, g.bx - bw/2 + s*.2, g.by - s*1.25, bw - s*.4, s*1.6, s*.3); c.fillStyle = '#fff'; c.fill();
+  shadow(c, g.bx, fy + s*.1, bw*.5);
+  // Бабай
+  const breath = sl.step === 3 ? 1 + Math.sin(now*2)*.03 : 1;
+  const o = {color:BCOL[0], seed:3, sx:1, sy:breath};
+  if (sl.step === 0) { o.mouth = 'open'; o.clean = sl.clean; }
+  else if (sl.step === 3) o.mood = 'sleep';
+  else o.mood = 'happy';
+  drawBabai(c, g.bx, g.by, s, o);
+  if (sl.step >= 2) drawTeddy(c, g.bx + s*.75, g.by + s*.55, s*.42);
+  // одеяло
+  rr(c, g.bx - bw/2, g.by + s*.75, bw, s*1.35, s*.3); c.fillStyle = '#ffd23f'; c.fill();
+  c.fillStyle = '#ff9d5c'; for (let i = 0; i < 5; i++) { starPath(c, g.bx - bw*.38 + i*bw*.19, g.by + s*1.45, s*.16, i); c.fill(); }
+  rr(c, g.bx - bw/2, g.by + s*.75, bw, s*.3, s*.15); c.fillStyle = '#fff6d8'; c.fill();
+  // лампа
+  c.strokeStyle = '#6b5a4a'; c.lineWidth = 4; c.beginPath(); c.moveTo(g.lampX, 0); c.lineTo(g.lampX, g.lampY - s*.4); c.stroke();
+  if (sl.step < 3) { const lg = c.createRadialGradient(g.lampX, g.lampY + s*.3, 0, g.lampX, g.lampY + s*.3, s*1.6); lg.addColorStop(0, 'rgba(255,240,150,.55)'); lg.addColorStop(1, 'rgba(255,240,150,0)'); c.fillStyle = lg; c.beginPath(); c.arc(g.lampX, g.lampY + s*.3, s*1.6, 0, 7); c.fill(); }
+  circ(c, g.lampX, g.lampY + s*.3, s*.22, sl.step < 3 ? '#fff6b0' : '#8a8aa8');
+  c.fillStyle = '#ff7f6e'; c.beginPath(); c.moveTo(g.lampX - s*.3, g.lampY - s*.45); c.lineTo(g.lampX + s*.3, g.lampY - s*.45); c.lineTo(g.lampX + s*.62, g.lampY + s*.3); c.lineTo(g.lampX - s*.62, g.lampY + s*.3); c.closePath(); c.fill();
+  // темнота после выключения лампы
+  if (sl.dark > 0) { c.fillStyle = `rgba(10,10,45,${.62*sl.dark})`; c.fillRect(0, 0, W, H); }
+  // подсказки и инструмент
+  if (!started) return;
+  if (sl.step === 0) { if (!sl.held) ring(c, g.bx, g.by + s*.3, s*.7); drawBrush(c, sl.tx, sl.ty, s); if (!sl.held) ring(c, sl.tx, sl.ty, s*.75); }
+  else if (sl.step === 1) { if (!sl.held) ring(c, sl.tx, sl.ty, s*.75); drawTeddy(c, sl.tx, sl.ty, s*.5); }
+  else if (sl.step === 2) ring(c, g.lampX, g.lampY, s*.95);
+}
+function drawBrush(c, x, y, s){
+  c.save(); c.translate(x, y); c.rotate(-.5);
+  rr(c, -s*.1, -s*.1, s*1.3, s*.2, s*.1); c.fillStyle = '#4fb8ff'; c.fill();
+  rr(c, -s*.6, -s*.14, s*.55, s*.28, s*.08); c.fillStyle = '#2f8fe0'; c.fill();
+  c.fillStyle = '#fff'; for (let i = 0; i < 5; i++) c.fillRect(-s*.56 + i*s*.1, -s*.36, s*.07, s*.24);
+  c.restore();
+}
+
+/* =========================================================
+   ОПИСАНИЕ ИГРЫ
+   ========================================================= */
+kitStart({
+  key:'babai', icon:'👻', title:{ru:'Бабай', kk:'Бабай'},
+  modes:[
+    {id:'light', icon:'🔦', name:{ru:'Фонарик', kk:'Қол шам'}},
+    {id:'boo',   icon:'👻', name:{ru:'Бу!', kk:'Бу!'}},
+    {id:'sleep', icon:'🌙', name:{ru:'Спать', kk:'Ұйқы'}}
+  ],
+  layout(){ roomLayout(); },
+  setMode(m){ if (m === 'light') startLight(); else if (m === 'boo') startBoo(); else startSleep(); },
+  lang(){
+    if (mode === 'light') speak(L(TX.light.intro));
+    else if (mode === 'boo') speak(L(TX.boo.intro));
+    else speak(L([TX.sleep.s0, TX.sleep.d0, TX.sleep.d1, TX.sleep.d2][sl.step]));
+  },
+  update(dt){ if (mode === 'light') updateLight(dt); else if (mode === 'boo') updateBoo(dt); else updateSleep(dt); },
+  render(){ if (mode === 'light') renderLight(); else if (mode === 'boo') renderBoo(); else renderSleep(); },
+  down(x, y){ if (mode === 'light') { fl.lx = x; fl.ly = y; } else if (mode === 'boo') booTap(x, y); else sleepDown(x, y); },
+  move(x, y){ if (mode === 'light') { fl.lx = x; fl.ly = y; } else if (mode === 'sleep') sleepMove(x, y); },
+  up(){ if (mode === 'sleep') sl.held = false; }
+});
+</script>
+</body>
+</html>

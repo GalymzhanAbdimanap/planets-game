@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#7ac74f">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Полиция</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚓</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<script src="kit.js"></script>
+<script>
+'use strict';
+/* =========================================================
+   ПОЛИЦИЯ
+   patrol — сирена, светофор и утята, потерянный котёнок
+   thief  — найди воришку по примете
+   ========================================================= */
+const TX = {
+  siren:{ru:'Нажми на полицейскую машину и включи сирену!', kk:'Полиция көлігін басып, сиренаны қос!'},
+  sirenOn:{ru:'Виу-виу! Полиция спешит на помощь!', kk:'Уиу-уиу! Полиция көмекке асығады!'},
+  ducks:{ru:'Утята хотят перейти дорогу. Нажми на светофор, чтобы машины остановились!', kk:'Үйрек балапандары жолдан өткісі келеді. Бағдаршамды бас, көліктер тоқтасын!'},
+  red:{ru:'Красный свет — машины стоят. Утята, идите!', kk:'Қызыл шам — көліктер тоқтайды. Балапандар, өтіңдер!'},
+  crossed:{ru:'Молодец! Утята перешли дорогу. Теперь включи машинам зелёный.', kk:'Жарайсың! Балапандар жолдан өтті. Енді көліктерге жасыл шамды қос.'},
+  green:{ru:'Зелёный свет — машины едут!', kk:'Жасыл шам — көліктер жүреді!'},
+  kitten:{ru:'Котёнок потерялся! Он прячется в кустах. Найди его!', kk:'Мысық баласы адасып қалды! Ол бұтаның арасында тығылып отыр. Оны тап!'},
+  kittenFound:{ru:'Ура! Котёнок нашёлся! Мяу!', kk:'Алақай! Мысық баласы табылды! Мияу!'},
+  empty:{ru:'Тут никого нет. Поищи ещё!', kk:'Мұнда ешкім жоқ. Тағы ізде!'},
+  thief:{ru:'Кто-то украл пирожок! Помоги полиции найти воришку.', kk:'Біреу бәлішті ұрлап кетті! Полицияға ұрыны табуға көмектес.'},
+  clueHat:{ru:c => `Воришка в ${c} шапке!`, kk:c => `Ұры ${c} телпек киген!`},
+  clueAnimal:{ru:n => `Воришка — ${n}!`, kk:n => `Ұры — ${n}!`},
+  caught:{ru:'Попался! Воришка вернул пирожок и сказал: «Извините!»', kk:'Ұсталды! Ұры бәлішті қайтарып, «Кешіріңіз!» деді.'},
+  notHim:{ru:'Нет, это не воришка.', kk:'Жоқ, бұл ұры емес.'}
+};
+const HATS = {
+  red:{hex:'#e8483f', ru:'красной', kk:'қызыл'}, blue:{hex:'#3f7de8', ru:'синей', kk:'көк'},
+  green:{hex:'#3fb562', ru:'зелёной', kk:'жасыл'}, yellow:{hex:'#f2c230', ru:'жёлтой', kk:'сары'}
+};
+const ANIMALS = {fox:{ru:'лиса', kk:'түлкі'}, bear:{ru:'медведь', kk:'аю'}, bunny:{ru:'заяц', kk:'қоян'}, raccoon:{ru:'енот', kk:'жанат'}};
+
+/* ---------- рисунки ---------- */
+function drawCar(c, x, y, Lc, h, col, dir, o = {}){
+  c.save(); c.translate(x, y); c.scale(dir, 1);
+  shadow(c, 0, h*.55, Lc*.5);
+  c.fillStyle = col;
+  c.beginPath(); c.moveTo(-Lc*.32, -h*.05); c.lineTo(-Lc*.22, -h*.55); c.lineTo(Lc*.14, -h*.55); c.lineTo(Lc*.3, -h*.05); c.closePath(); c.fill();
+  rr(c, -Lc/2, -h*.12, Lc, h*.55, h*.2); c.fill();
+  c.fillStyle = '#d6f1ff';
+  c.beginPath(); c.moveTo(-Lc*.25, -h*.1); c.lineTo(-Lc*.18, -h*.45); c.lineTo(-Lc*.04, -h*.45); c.lineTo(-Lc*.04, -h*.1); c.closePath(); c.fill();
+  c.beginPath(); c.moveTo(Lc*.01, -h*.1); c.lineTo(Lc*.01, -h*.45); c.lineTo(Lc*.11, -h*.45); c.lineTo(Lc*.22, -h*.1); c.closePath(); c.fill();
+  if (o.police) {
+    c.fillStyle = '#2f6fe0'; c.fillRect(-Lc/2, h*.08, Lc, h*.13);
+    const flip = o.siren && Math.floor(now*7) % 2;
+    if (o.siren) { const gl = c.createRadialGradient(0, -h*.7, 0, 0, -h*.7, h*1.2); gl.addColorStop(0, flip ? 'rgba(255,60,60,.6)' : 'rgba(60,120,255,.6)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gl; c.beginPath(); c.arc(0, -h*.7, h*1.2, 0, 7); c.fill(); }
+    rr(c, -Lc*.13, -h*.72, Lc*.11, h*.18, h*.06); c.fillStyle = flip ? '#ffb0b0' : '#e8483f'; c.fill();
+    rr(c, -Lc*.02, -h*.72, Lc*.11, h*.18, h*.06); c.fillStyle = o.siren && !flip ? '#b0c8ff' : '#3f7de8'; c.fill();
+    c.fillStyle = '#ffd23f'; starPath(c, -Lc*.3, h*.14, h*.12, 0); c.fill();
+  }
+  circ(c, Lc*.46, h*.12, h*.08, '#fff3a0');
+  for (const wx of [-.28, .28]) { circ(c, wx*Lc, h*.42, h*.22, '#2b2b3a'); circ(c, wx*Lc, h*.42, h*.09, '#c9ccd6'); }
+  c.restore();
+}
+function drawDuck(c, x, y, s, col, dir, swim){
+  c.save(); c.translate(x, y + (swim ? Math.sin(now*3 + x)*s*.08 : -Math.abs(Math.sin(now*9 + x))*s*.12)); c.scale(dir, 1);
+  if (!swim) { c.fillStyle = '#ff9a2e'; c.fillRect(-s*.15, s*.5, s*.1, s*.3); c.fillRect(s*.1, s*.5, s*.1, s*.3); }
+  ell(c, 0, s*.2, s*.75, s*.52, col); ell(c, -s*.55, -s*.05, s*.3, s*.2, col, .6);
+  circ(c, s*.45, -s*.45, s*.4, col);
+  c.fillStyle = '#ff9a2e'; c.beginPath(); c.moveTo(s*.78, -s*.5); c.lineTo(s*1.15, -s*.38); c.lineTo(s*.78, -s*.26); c.closePath(); c.fill();
+  circ(c, s*.55, -s*.55, s*.07, '#2b1b3d');
+  c.restore();
+}
+function drawBush(c, x, y, s, rot){
+  c.save(); c.translate(x, y + s*.6); c.rotate(rot); c.translate(0, -s*.6);
+  for (const [dx, dy, r] of [[-.75, .15, .62], [.75, .15, .62], [0, -.3, .85], [-.35, .3, .6], [.4, .3, .6]]) circ(c, dx*s, dy*s, r*s, '#3f9a4a');
+  for (const [dx, dy, r] of [[-.5, -.1, .4], [.3, -.45, .45]]) circ(c, dx*s, dy*s, r*s, '#52b35e');
+  for (const [dx, dy] of [[-.6, .3], [.1, -.1], [.7, .25], [.35, .5]]) circ(c, dx*s, dy*s, s*.08, '#ff5a6e');
+  c.restore();
+}
+function drawKitten(c, x, y, s){
+  const g = '#ffa94d';
+  c.fillStyle = g;
+  for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(x + sd*s*.2, y - s*.6); c.lineTo(x + sd*s*.68, y - s*1.1); c.lineTo(x + sd*s*.78, y - s*.3); c.closePath(); c.fill(); }
+  circ(c, x, y, s*.8, g); ell(c, x, y + s*.3, s*.4, s*.28, '#fff1dc');
+  drawFace(c, x, y - s*.05, s*.62, {mood:'happy', noCheeks:true});
+  c.fillStyle = '#ff7f9f'; c.beginPath(); c.moveTo(x - s*.09, y + s*.08); c.lineTo(x + s*.09, y + s*.08); c.lineTo(x, y + s*.18); c.closePath(); c.fill();
+}
+function drawAnimal(c, kind, x, y, s, o = {}){
+  c.save(); c.translate(x, y);
+  if (o.rot) c.rotate(o.rot);
+  const col = {fox:'#f08a3c', bear:'#a06f45', bunny:'#f1ecf6', raccoon:'#9aa0ab'}[kind];
+  if (o.body !== false) {
+    rr(c, -s*.7, s*.6, s*1.4, s*1.35, s*.5); c.fillStyle = col; c.fill();
+    ell(c, 0, s*1.35, s*.42, s*.5, 'rgba(255,255,255,.45)');
+    for (const sd of [-1, 1]) circ(c, sd*s*.8, s*1.15, s*.22, col);
+  }
+  // уши
+  c.fillStyle = col;
+  if (kind === 'fox' || kind === 'raccoon') {
+    for (const sd of [-1, 1]) {
+      c.fillStyle = col; c.beginPath(); c.moveTo(sd*s*.25, -s*.75); c.lineTo(sd*s*.85, -s*1.4); c.lineTo(sd*s*.98, -s*.35); c.closePath(); c.fill();
+      c.fillStyle = kind === 'fox' ? '#5a2d12' : '#4a4f5c'; c.beginPath(); c.moveTo(sd*s*.5, -s*.8); c.lineTo(sd*s*.8, -s*1.18); c.lineTo(sd*s*.86, -s*.62); c.closePath(); c.fill();
+    }
+  } else if (kind === 'bear') {
+    for (const sd of [-1, 1]) { circ(c, sd*s*.72, -s*.72, s*.34, col); circ(c, sd*s*.72, -s*.72, s*.17, '#e3c19a'); }
+  } else {
+    for (const sd of [-1, 1]) { ell(c, sd*s*.42, -s*1.5, s*.24, s*.75, col, sd*.12); ell(c, sd*s*.42, -s*1.5, s*.1, s*.5, '#ffb6cc', sd*.12); }
+  }
+  circ(c, 0, 0, s, col);
+  if (kind === 'raccoon') for (const sd of [-1, 1]) ell(c, sd*s*.38, -s*.1, s*.4, s*.3, '#4a4f5c', sd*.3);
+  ell(c, 0, s*.4, s*.52, s*.4, kind === 'bear' ? '#e3c19a' : '#fff');
+  c.fillStyle = shade(c, 0, 0, s); c.beginPath(); c.arc(0, 0, s, 0, 7); c.fill();
+  drawFace(c, 0, s*.05, s*.62, {mood:o.mood, seed:o.seed, lookX:ptr.x - x, lookY:ptr.y - y, noCheeks:kind === 'raccoon'});
+  ell(c, 0, s*.16, s*.12, s*.09, kind === 'bunny' ? '#ff8fa3' : '#2b1b3d');
+  if (o.hat) drawBeanie(c, 0, 0, s, o.hat);
+  c.restore();
+}
+function drawBeanie(c, x, y, s, hex){
+  c.fillStyle = hex; c.beginPath(); c.ellipse(x, y - s*.42, s*1.0, s*.8, 0, Math.PI, Math.PI*2); c.fill();
+  rr(c, x - s*1.05, y - s*.62, s*2.1, s*.3, s*.14); c.fill();
+  rr(c, x - s*1.05, y - s*.62, s*2.1, s*.3, s*.14); c.fillStyle = 'rgba(0,0,0,.18)'; c.fill();
+  circ(c, x, y - s*1.25, s*.22, '#fff');
+}
+function drawPie(c, x, y, s){
+  ell(c, x, y, s, s*.6, '#e8a04a'); ell(c, x, y - s*.12, s*.8, s*.42, '#f6c877');
+  c.strokeStyle = '#c47a2a'; c.lineWidth = s*.1; c.lineCap = 'round';
+  for (const dx of [-.35, 0, .35]) { c.beginPath(); c.moveTo(x + dx*s - s*.08, y - s*.22); c.lineTo(x + dx*s + s*.08, y - s*.02); c.stroke(); }
+}
+
+/* =========================================================
+   ПАТРУЛЬ
+   ========================================================= */
+let G = {};          // геометрия улицы
+let pt = {step:'siren', red:false, sirenUntil:0, cars:[], ducks:{state:'hidden', p:0}, bush:-1, found:false, shake:{i:-1, t:0}, nextAt:0, next:null, meowAt:0};
+const CARCOL = ['#ff7043','#ab47bc','#ffca28','#26a69a','#ec407a','#5c6bc0'];
+function patrolLayout(){
+  const a = area;
+  const rh = Math.min(a.h*(land ? .34 : .24), a.w*.3), ry = a.y0 + a.h*.5;
+  const top = ry - rh/2, bot = ry + rh/2, carH = rh*.42, carL = carH*1.95;
+  G = {rh, ry, top, bot, carH, carL, zx:a.cx, zw:rh*.8, s:rh*.4,
+    light:{x:a.cx + rh*.72, y:top - rh*.5},
+    police:{x:a.x0 + a.w*.2, y:bot + (a.y1 - bot)*.5},
+    pond:{x:a.x0 + a.w*.86, y:bot + (a.y1 - bot)*.42},
+    wait:{x:a.cx, y:top - rh*.2}, cross:{x:a.cx, y:bot + rh*.22},
+    bushes:[{x:a.x0 + a.w*.13, y:a.y0 + (top - a.y0)*.6}, {x:a.x0 + a.w*.9, y:a.y0 + (top - a.y0)*.66}, {x:a.x0 + a.w*.52, y:bot + (a.y1 - bot)*.8}]};
+}
+function startPatrol(quiet){
+  patrolLayout();
+  pt = {step:'siren', red:false, sirenUntil:0, cars:[], ducks:{state:'hidden', p:0}, bush:-1, found:false, shake:{i:-1, t:0}, nextAt:0, next:null, meowAt:0};
+  for (let lane = 0; lane < 2; lane++) for (let k = 0; k < 2; k++) pt.cars.push({lane, x:area.x0 + area.w*(.15 + k*.55 + lane*.2), col:pick(CARCOL)});
+  if (!quiet) speak(L(TX.siren));
+}
+function later(sec, fn){ pt.nextAt = now + sec; pt.next = fn; }
+function goStep(step){
+  pt.step = step;
+  if (step === 'siren') speak(L(TX.siren));
+  else if (step === 'ducks') { pt.red = false; pt.ducks = {state:'wait', p:0}; sfx.quack(); speak(L(TX.ducks)); }
+  else if (step === 'kitten') { pt.bush = Math.floor(Math.random()*3); pt.found = false; pt.meowAt = now + 1.5; sfx.meow(); speak(L(TX.kitten)); }
+}
+function zebraClear(){ return pt.cars.every(cr => Math.abs(cr.x - G.zx) > G.zw/2 + G.carL/2 + 2); }
+function duckPos(p){
+  if (p < 0) return {x:G.wait.x + p*G.rh*3, y:G.wait.y + p*G.rh*.8};
+  if (p < .6) { const t = p/.6; return {x:G.wait.x, y:lerp(G.wait.y, G.cross.y, t)}; }
+  const t = Math.min(1, (p - .6)/.4); return {x:lerp(G.cross.x, G.pond.x, t), y:lerp(G.cross.y, G.pond.y, t)};
+}
+function updatePatrol(dt){
+  const v = G.carL*1.15, stop = pt.red || pt.ducks.state === 'cross';
+  for (const cr of pt.cars) {
+    const dir = cr.lane ? 1 : -1;
+    let nx = cr.x + dir*v*dt;
+    const line = G.zx - dir*(G.zw/2 + G.carL/2 + 8);
+    if (stop && (cr.x - line)*dir <= 0 && (nx - line)*dir > 0) nx = line;
+    for (const o of pt.cars) if (o !== cr && o.lane === cr.lane) { const gap = (o.x - cr.x)*dir; if (gap > 0 && gap < G.carL*1.3 && (o.x - nx)*dir < G.carL*1.25) nx = cr.x; }
+    cr.x = nx;
+    if (dir > 0 && cr.x > W + G.carL) { cr.x = -G.carL*rand(1, 2.5); cr.col = pick(CARCOL); }
+    if (dir < 0 && cr.x < -G.carL) { cr.x = W + G.carL*rand(1, 2.5); cr.col = pick(CARCOL); }
+  }
+  const d = pt.ducks;
+  if (d.state === 'wait' && pt.red && zebraClear()) { d.state = 'cross'; sfx.quack(); }
+  if (d.state === 'cross' || d.state === 'topond') {
+    d.p += dt/5.5;
+    if (Math.random() < .02) sfx.quack();
+    if (d.state === 'cross' && d.p - 3*.07 >= .6) {
+      d.state = 'topond';
+      if (pt.step === 'ducks') { pt.step = 'green'; sfx.success(); addStar(G.cross.x, G.cross.y); speak(L(TX.crossed)); }
+    }
+    if (d.p - 3*.07 >= 1) d.state = 'pond';
+  }
+  if (pt.step === 'kitten' && !pt.found && now > pt.meowAt) { pt.meowAt = now + 2.6; sfx.meow(); pt.shake = {i:pt.bush, t:.6}; }
+  pt.shake.t = Math.max(0, pt.shake.t - dt);
+  if (pt.nextAt && now > pt.nextAt) { pt.nextAt = 0; const f = pt.next; pt.next = null; if (f) f(); }
+}
+function patrolTap(x, y){
+  const s = G.s;
+  if (Math.hypot(x - G.police.x, y - G.police.y) < G.carL*.75) {
+    pt.sirenUntil = now + 2.6; sfx.siren();
+    if (pt.step === 'siren') { pt.step = 'wait'; addStar(G.police.x, G.police.y - G.carH); speak(L(TX.sirenOn)); later(3.6, () => goStep('ducks')); }
+    return;
+  }
+  if (Math.abs(x - G.light.x) < G.rh*.3 && Math.abs(y - G.light.y) < G.rh*.62) {
+    pt.red = !pt.red; sfx.tap();
+    if (pt.step === 'ducks' && pt.red) speak(L(TX.red));
+    else if (pt.step === 'green' && !pt.red) { pt.step = 'wait'; addStar(G.light.x, G.light.y); speak(L(TX.green)); later(3.2, () => goStep('kitten')); }
+    return;
+  }
+  for (let i = 0; i < 3; i++) {
+    const b = G.bushes[i];
+    if (Math.hypot(x - b.x, y - b.y) < s*1.6) {
+      pt.shake = {i, t:.5}; sfx.pick();
+      if (pt.step === 'kitten' && !pt.found) {
+        if (i === pt.bush) { pt.found = true; pt.step = 'wait'; sfx.meow(); sfx.success(); addStar(b.x, b.y - s); speak(L(TX.kittenFound)); later(4.2, () => { pt.bush = -1; goStep('siren'); }); }
+        else speak(L(TX.empty));
+      }
+      return;
+    }
+  }
+  for (const cr of pt.cars) { const cy = G.ry + (cr.lane ? 1 : -1)*G.rh*.25; if (Math.abs(x - cr.x) < G.carL*.6 && Math.abs(y - cy) < G.carH) { sfx.honk(); return; } }
+}
+function renderPatrol(){
+  const c = ctx, a = area, s = G.s;
+  c.fillStyle = '#7ac74f'; c.fillRect(0, 0, W, H);
+  c.fillStyle = '#8ad65c'; for (let i = 0; i < 14; i++) ell(c, (i*137.5) % W, (i*211.3) % H, s*1.4, s*.5, '#8ad65c');
+  // домик и дерево (фон)
+  const hx = a.x0 + a.w*.36, hy = G.top - s*.5;
+  if (hy - s*3.2 > a.y0 - s) {
+    c.fillStyle = '#ffe0a3'; c.fillRect(hx - s*1.2, hy - s*1.9, s*2.4, s*1.9);
+    c.fillStyle = '#e8604a'; c.beginPath(); c.moveTo(hx - s*1.5, hy - s*1.9); c.lineTo(hx, hy - s*3.1); c.lineTo(hx + s*1.5, hy - s*1.9); c.closePath(); c.fill();
+    rr(c, hx - s*.3, hy - s*1.0, s*.6, s*1.0, s*.1); c.fillStyle = '#a8703e'; c.fill();
+    rr(c, hx + s*.45, hy - s*1.5, s*.5, s*.5, s*.08); c.fillStyle = '#9adfff'; c.fill();
+  }
+  // дорога и переход
+  c.fillStyle = '#5b6170'; c.fillRect(0, G.top, W, G.rh);
+  c.fillStyle = '#e9edf5'; c.fillRect(0, G.top - 3, W, 5); c.fillRect(0, G.bot - 2, W, 5);
+  c.fillStyle = '#ffe27a';
+  for (let x = (a.x0 % 60); x < W; x += s*1.6) if (Math.abs(x + s*.4 - G.zx) > G.zw*.7) c.fillRect(x, G.ry - 2, s*.8, 4);
+  c.fillStyle = '#fff';
+  const n = 5, sw = G.rh/(n*2 - 1);
+  for (let i = 0; i < n; i++) c.fillRect(G.zx - G.zw/2, G.top + i*2*sw, G.zw, sw);
+  // пруд
+  ell(c, G.pond.x, G.pond.y, s*2.0, s*1.15, '#4fb8e8'); ell(c, G.pond.x - s*.4, G.pond.y - s*.2, s*1.3, s*.55, 'rgba(255,255,255,.25)');
+  // кусты
+  G.bushes.forEach((b, i) => {
+    const sh = pt.shake.i === i && pt.shake.t > 0 ? Math.sin(now*40)*.12 : 0;
+    if (pt.found && pt.bush === i) drawKitten(c, b.x, b.y - s*1.35 - Math.abs(Math.sin(now*6))*s*.15, s*.75);
+    drawBush(c, b.x, b.y, s*1.15, sh);
+  });
+  // утки
+  const d = pt.ducks;
+  if (d.state !== 'hidden') for (let i = 3; i >= 0; i--) {
+    const swim = d.state === 'pond';
+    let p;
+    if (swim) p = {x:G.pond.x + Math.cos(now*.5 + i*1.6)*s*1.2, y:G.pond.y + Math.sin(now*.5 + i*1.6)*s*.5};
+    else p = duckPos(d.p - i*.07);
+    drawDuck(c, p.x, p.y, i === 0 ? s*.62 : s*.4, i === 0 ? '#fff' : '#ffd93b', swim ? (Math.sin(now*.5 + i*1.6) > 0 ? -1 : 1) : 1, swim);
+  }
+  // машины
+  for (const cr of pt.cars) drawCar(c, cr.x, G.ry + (cr.lane ? 1 : -1)*G.rh*.25 - G.carH*.1, G.carL, G.carH, cr.col, cr.lane ? 1 : -1);
+  // светофор
+  const l = G.light, lw = G.rh*.36, lh = G.rh*.95;
+  c.fillStyle = '#5d6579'; c.fillRect(l.x - lw*.1, l.y + lh*.4, lw*.2, G.rh*.35);
+  rr(c, l.x - lw/2, l.y - lh/2, lw, lh, lw*.3); c.fillStyle = '#2b2f3d'; c.fill();
+  const lamps = [[pt.red, '#ff4438', '#5a2020'], [false, '#ffc93c', '#5a4a1a'], [!pt.red, '#3ddc68', '#1a4a28']];
+  lamps.forEach(([on, c1, c0], i) => {
+    const yy = l.y + (i - 1)*lh*.3;
+    if (on) { const gl = c.createRadialGradient(l.x, yy, 0, l.x, yy, lw*.9); gl.addColorStop(0, c1); gl.addColorStop(1, 'rgba(255,255,255,0)'); c.globalAlpha = .5; c.fillStyle = gl; c.beginPath(); c.arc(l.x, yy, lw*.9, 0, 7); c.fill(); c.globalAlpha = 1; }
+    circ(c, l.x, yy, lw*.3, on ? c1 : c0);
+  });
+  // полицейская машина
+  const son = now < pt.sirenUntil, pp = G.police, ps = 1.25;
+  rr(c, pp.x - G.carL*.85, pp.y - G.carH*.2, G.carL*1.7, G.carH*1.5, s*.3); c.fillStyle = '#9aa3b5'; c.fill();
+  drawCar(c, pp.x, pp.y + G.carH*.35 - (son ? Math.abs(Math.sin(now*12))*s*.15 : 0), G.carL*ps, G.carH*ps, '#f5f7ff', 1, {police:true, siren:son});
+  // подсказки
+  if (!started) return;
+  if (pt.step === 'siren') ring(c, pp.x, pp.y + G.carH*.3, G.carL*.85);
+  else if ((pt.step === 'ducks' && !pt.red) || pt.step === 'green') ring(c, l.x, l.y, lh*.62);
+}
+
+/* =========================================================
+   НАЙДИ ВОРИШКУ
+   ========================================================= */
+let th = {sus:[], thief:0, clue:'hat', found:false, nextAt:0, shake:{i:-1, t:0}, n:0};
+function thiefPos(i){
+  const a = area, cols = land ? 4 : 2, rows = land ? 1 : 2;
+  const top = a.y0 + a.h*(land ? .3 : .22), cw = a.w/cols, ch = (a.y1 - (land ? 0 : 58) - top)/rows;
+  return {x:a.x0 + cw*(i % cols + .5), y:top + ch*(Math.floor(i/cols) + .42), s:Math.min(cw*.22, ch*.2)};
+}
+function newThief(prefix = ''){
+  const an = shuffle(Object.keys(ANIMALS)), hats = shuffle(Object.keys(HATS));
+  th.sus = an.map((a, i) => ({animal:a, hat:hats[i], seed:i*1.9}));
+  th.thief = Math.floor(Math.random()*4); th.found = false; th.nextAt = 0;
+  th.clue = th.n++ % 2 ? 'animal' : 'hat';
+  speak(prefix + clueText());
+}
+function clueText(){
+  const t = th.sus[th.thief];
+  return th.clue === 'hat' ? TX.clueHat[lang](L(HATS[t.hat])) : TX.clueAnimal[lang](L(ANIMALS[t.animal]));
+}
+function updateThief(dt){
+  th.shake.t = Math.max(0, th.shake.t - dt);
+  if (th.nextAt && now > th.nextAt) newThief();
+}
+function thiefTap(x, y){
+  if (th.found) return;
+  for (let i = 0; i < 4; i++) {
+    const p = thiefPos(i);
+    if (Math.abs(x - p.x) < p.s*1.7 && y > p.y - p.s*2.2 && y < p.y + p.s*2.4) {
+      if (i === th.thief) { th.found = true; sfx.success(); addStar(p.x, p.y); speak(praise() + ' ' + L(TX.caught)); th.nextAt = now + 6; }
+      else { th.shake = {i, t:.6}; sfx.soft(); speak(L(TX.notHim) + ' ' + clueText()); }
+      return;
+    }
+  }
+  if (y < thiefPos(0).y - thiefPos(0).s*2.2) { sfx.tap(); speak(clueText()); }
+}
+function renderThief(){
+  const c = ctx, a = area;
+  const p0 = thiefPos(0), fy = land ? a.y1 - a.h*.1 : a.y1 - a.h*.04;
+  c.fillStyle = '#cfe6f7'; c.fillRect(0, 0, W, H);
+  c.strokeStyle = 'rgba(60,90,140,.18)'; c.lineWidth = 3;
+  for (let y = a.y0 + a.h*.2; y < H; y += p0.s*.9) { c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke(); }
+  // подсказка: пирожок → примета
+  if (th.sus.length) {
+    const t = th.sus[th.thief], bs = Math.min(a.h*.075, a.w*.07), bx = a.cx, by = a.y0 + (land ? a.h*.13 : a.h*.09);
+    rr(c, bx - bs*3.6, by - bs*1.35, bs*7.2, bs*2.7, bs*1.35); c.fillStyle = '#fff'; c.fill();
+    c.strokeStyle = '#3f7de8'; c.lineWidth = 4; c.stroke();
+    drawPie(c, bx - bs*2.1, by + bs*.1, bs*.95);
+    c.fillStyle = '#3f7de8'; c.font = `900 ${bs*1.5}px Nunito, system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('→', bx - bs*.1, by);
+    if (th.clue === 'hat') drawBeanie(c, bx + bs*2.0, by + bs*.75, bs*.85, HATS[t.hat].hex);
+    else drawAnimal(c, t.animal, bx + bs*2.0, by + bs*.1, bs*.8, {body:false});
+  }
+  th.sus.forEach((su, i) => {
+    const p = thiefPos(i), s = p.s, isT = th.found && i === th.thief;
+    rr(c, p.x - s*1.6, p.y + s*2.0, s*3.2, s*.35, s*.17); c.fillStyle = 'rgba(60,90,140,.25)'; c.fill();
+    const rot = th.shake.i === i && th.shake.t > 0 ? Math.sin(th.shake.t*30)*.15 : 0;
+    const mood = th.found ? (isT ? 'scared' : 'happy') : 'normal';
+    drawAnimal(c, su.animal, p.x, p.y - (th.found && !isT ? Math.abs(Math.sin(now*6 + i))*s*.15 : 0), s, {hat:HATS[su.hat].hex, mood, rot, seed:su.seed});
+    if (isT) drawPie(c, p.x, p.y + s*1.35, s*.55);
+  });
+}
+
+kitStart({
+  key:'police', icon:'🚓', title:{ru:'Полиция', kk:'Полиция'},
+  modes:[
+    {id:'patrol', icon:'🚓', name:{ru:'Патруль', kk:'Патруль'}},
+    {id:'thief',  icon:'🦝', name:{ru:'Воришка', kk:'Ұры'}}
+  ],
+  layout(){ patrolLayout(); },
+  setMode(m, quiet){ if (m === 'patrol') { subTop = !land; startPatrol(quiet); } else { th.n = 0; newThief(L(TX.thief) + ' '); } },
+  lang(){
+    if (mode === 'thief') { speak(clueText()); return; }
+    const k = {siren:'siren', ducks:'ducks', green:'crossed', kitten:'kitten'}[pt.step];
+    if (k) speak(L(TX[k]));
+  },
+  update(dt){ if (mode === 'patrol') updatePatrol(dt); else updateThief(dt); },
+  render(){ if (mode === 'patrol') renderPatrol(); else renderThief(); },
+  down(x, y){ if (mode === 'patrol') patrolTap(x, y); else thiefTap(x, y); }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#7fd0f5">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Щенки-спасатели</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐶</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<script src="kit.js"></script>
+<script>
+'use strict';
+/* =========================================================
+   ЩЕНКИ-СПАСАТЕЛИ
+   Приходит вызов — ребёнок выбирает щенка с нужной машиной.
+   Имена щенков можно поменять в PUPS (поле name).
+   ========================================================= */
+const PUPS = [
+  {id:'police', name:'Гром',    fur:'#c98a4b', ear:'#8a5a2b', muz:'#f3dcc0',
+   intro:{ru:'Я Гром, полицейский. Я ловлю воришек.', kk:'Мен Гром, полицеймін. Мен ұрыларды ұстаймын.'}},
+  {id:'fire',   name:'Огонёк',  fur:'#f7f7f7', ear:'#3a3a44', muz:'#ffffff',
+   intro:{ru:'Я Огонёк, пожарный. Я тушу огонь.', kk:'Мен Огонёк, өрт сөндірушімін. Мен от сөндіремін.'}},
+  {id:'pilot',  name:'Ветерок', fur:'#f2c14e', ear:'#c48a22', muz:'#fff3d6',
+   intro:{ru:'Я Ветерок, лётчик. Я летаю высоко.', kk:'Мен Ветерок, ұшқышпын. Мен биікте ұшамын.'}},
+  {id:'water',  name:'Буль',    fur:'#9aa0ab', ear:'#5d6270', muz:'#e9ecf2',
+   intro:{ru:'Я Буль, спасатель. Я плаваю на лодке.', kk:'Мен Буль, құтқарушымын. Мен қайықпен жүземін.'}}
+];
+const CALLS = {
+  fire:  {pup:'fire',
+    call:{ru:'Тревога! В домике пожар! Кто потушит огонь?', kk:'Дабыл! Үйде өрт шықты! Отты кім сөндіреді?'},
+    done:{ru:'Огонёк — пожарный! Он потушил огонь водой.', kk:'Огонёк — өрт сөндіруші! Ол отты сумен сөндірді.'}},
+  thief: {pup:'police',
+    call:{ru:'Тревога! Енот утащил пирожок! Кто его поймает?', kk:'Дабыл! Жанат бәлішті алып қашты! Оны кім ұстайды?'},
+    done:{ru:'Гром — полицейский! Он поймал воришку.', kk:'Гром — полицей! Ол ұрыны ұстады.'}},
+  water: {pup:'water',
+    call:{ru:'Тревога! Утёнок уплыл далеко по реке! Кто его спасёт?', kk:'Дабыл! Үйрек балапаны өзенмен алысқа жүзіп кетті! Оны кім құтқарады?'},
+    done:{ru:'Буль — спасатель на воде! Он привёз утёнка на лодке.', kk:'Буль — судағы құтқарушы! Ол балапанды қайықпен алып келді.'}},
+  high:  {pup:'pilot',
+    call:{ru:'Тревога! Котёнок забрался на высокую гору! Кто его снимет?', kk:'Дабыл! Мысық баласы биік тауға шығып кетті! Оны кім түсіреді?'},
+    done:{ru:'Ветерок — лётчик! Он снял котёнка на вертолёте.', kk:'Ветерок — ұшқыш! Ол мысықты тікұшақпен түсірді.'}}
+};
+const OTHER = {ru:'Тут нужен другой щенок!', kk:'Мұнда басқа күшік керек!'};
+
+/* ---------- щенки и машины ---------- */
+function drawPupHead(c, x, y, s, p, mood){
+  for (const sd of [-1, 1]) ell(c, x + sd*s*.88, y + s*.15, s*.3, s*.62, p.ear, sd*-.25);
+  circ(c, x, y, s, p.fur);
+  if (p.id === 'fire') for (const [dx, dy, r] of [[-.55, -.35, .16], [.5, .5, .12], [.62, -.2, .1]]) circ(c, x + dx*s, y + dy*s, r*s, '#3a3a44');
+  ell(c, x, y + s*.42, s*.52, s*.4, p.muz);
+  c.fillStyle = shade(c, x, y, s); c.beginPath(); c.arc(x, y, s, 0, 7); c.fill();
+  drawFace(c, x, y + s*.05, s*.62, {mood, seed:p.name.length, noCheeks:true});
+  ell(c, x, y + s*.2, s*.16, s*.11, '#2b1b3d');
+  // головные уборы
+  if (p.id === 'police') {
+    c.fillStyle = '#2f5fd0'; c.beginPath(); c.ellipse(x, y - s*.55, s*.85, s*.6, 0, Math.PI, Math.PI*2); c.fill();
+    rr(c, x - s*.95, y - s*.62, s*1.9, s*.22, s*.1); c.fillStyle = '#1d3f96'; c.fill();
+    c.fillStyle = '#ffd23f'; starPath(c, x, y - s*.88, s*.2, 0); c.fill();
+  } else if (p.id === 'fire') {
+    c.fillStyle = '#e8483f'; c.beginPath(); c.ellipse(x, y - s*.5, s*.9, s*.75, 0, Math.PI, Math.PI*2); c.fill();
+    rr(c, x - s*1.1, y - s*.6, s*2.2, s*.2, s*.1); c.fill();
+    rr(c, x - s*.2, y - s*1.05, s*.4, s*.4, s*.08); c.fillStyle = '#ffd23f'; c.fill();
+  } else if (p.id === 'pilot') {
+    c.fillStyle = '#8a5a3c'; c.beginPath(); c.ellipse(x, y - s*.45, s*.95, s*.7, 0, Math.PI, Math.PI*2); c.fill();
+    rr(c, x - s*.8, y - s*.85, s*1.6, s*.2, s*.1); c.fillStyle = '#5a3a24'; c.fill();
+    for (const sd of [-1, 1]) { circ(c, x + sd*s*.36, y - s*.75, s*.27, '#5a3a24'); circ(c, x + sd*s*.36, y - s*.75, s*.19, '#9adfff'); }
+  } else {
+    rr(c, x - s*.7, y - s*.98, s*1.4, s*.5, s*.2); c.fillStyle = '#ff8c2e'; c.fill();
+    rr(c, x - s*.55, y - s*.88, s*1.1, s*.3, s*.12); c.fillStyle = '#bfeaff'; c.fill();
+    c.strokeStyle = '#ff8c2e'; c.lineWidth = s*.13; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(x + s*.85, y - s*.4); c.lineTo(x + s*.85, y - s*1.45); c.stroke();
+  }
+}
+function wheels(c, s, xs, r){ for (const wx of xs) { circ(c, wx*s, s*.42, r*s, '#2b2b3a'); circ(c, wx*s, s*.42, r*s*.42, '#c9ccd6'); } }
+// щенок в своей машине; s — размер головы щенка
+function drawPupIn(c, p, x, y, s, o = {}){
+  c.save(); c.translate(x, y);
+  if (o.rot) c.rotate(o.rot);
+  if (o.dir < 0) c.scale(-1, 1);
+  const hy = -s*.75;
+  if (p.id === 'police') {
+    drawPupHead(c, -s*.1, hy, s*.62, p, o.mood);
+    rr(c, -s*1.35, -s*.35, s*2.7, s*.8, s*.3); c.fillStyle = '#f5f7ff'; c.fill();
+    c.fillStyle = '#2f6fe0'; c.fillRect(-s*1.35, -s*.05, s*2.7, s*.2);
+    c.fillStyle = '#ffd23f'; starPath(c, -s*.75, s*.05, s*.2, 0); c.fill();
+    const fl = o.siren && Math.floor(now*7) % 2;
+    rr(c, s*.55, -s*.62, s*.5, s*.27, s*.1); c.fillStyle = fl ? '#ff9a9a' : '#e8483f'; c.fill();
+    circ(c, s*1.28, s*.05, s*.1, '#fff3a0');
+    wheels(c, s, [-.8, .8], .3);
+  } else if (p.id === 'fire') {
+    drawPupHead(c, s*.75, hy, s*.62, p, o.mood);
+    rr(c, -s*1.5, -s*.4, s*3.0, s*.85, s*.2); c.fillStyle = '#e8483f'; c.fill();
+    c.fillStyle = '#fff'; c.fillRect(-s*1.5, s*.05, s*3.0, s*.13);
+    c.strokeStyle = '#d9dde6'; c.lineWidth = s*.09;
+    c.beginPath(); c.moveTo(-s*1.4, -s*.55); c.lineTo(s*.1, -s*.55); c.moveTo(-s*1.4, -s*.75); c.lineTo(s*.1, -s*.75); c.stroke();
+    for (let i = 0; i < 5; i++) { c.beginPath(); c.moveTo(-s*1.3 + i*s*.33, -s*.55); c.lineTo(-s*1.3 + i*s*.33, -s*.75); c.stroke(); }
+    circ(c, s*1.42, s*.1, s*.1, '#fff3a0');
+    wheels(c, s, [-.95, 0, .95], .28);
+  } else if (p.id === 'pilot') {
+    c.strokeStyle = '#6b7080'; c.lineWidth = s*.1; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(-s*.8, s*.75); c.lineTo(s*.9, s*.75); c.moveTo(-s*.4, s*.4); c.lineTo(-s*.4, s*.75); c.moveTo(s*.5, s*.4); c.lineTo(s*.5, s*.75); c.stroke();
+    rr(c, -s*2.0, -s*.12, s*1.4, s*.24, s*.12); c.fillStyle = '#f2b82e'; c.fill();
+    c.save(); c.translate(-s*1.95, -s*.05); c.rotate(now*20); c.fillStyle = '#c9ccd6'; c.fillRect(-s*.35, -s*.04, s*.7, s*.08); c.restore();
+    ell(c, 0, s*.0, s*1.1, s*.62, '#ffd23f');
+    c.save(); c.beginPath(); c.ellipse(0, 0, s*1.1, s*.62, 0, 0, 7); c.clip();
+    c.fillStyle = '#bfeaff'; c.fillRect(-s*.2, -s*.7, s*1.5, s*.75);
+    drawPupHead(c, s*.42, -s*.12, s*.42, p, o.mood);
+    c.restore();
+    c.fillStyle = '#6b7080'; c.fillRect(-s*.06, -s*.9, s*.12, s*.3);
+    const rw = s*1.7*Math.abs(Math.cos(now*18)) + s*.2;
+    rr(c, -rw, -s*.97, rw*2, s*.1, s*.05); c.fillStyle = '#9aa3b5'; c.fill();
+  } else {
+    drawPupHead(c, -s*.1, hy + s*.1, s*.62, p, o.mood);
+    c.fillStyle = '#ff8c2e'; c.beginPath(); c.moveTo(-s*1.45, -s*.3); c.lineTo(s*1.55, -s*.3); c.lineTo(s*1.05, s*.55); c.lineTo(-s*1.1, s*.55); c.closePath(); c.fill();
+    c.fillStyle = '#fff'; c.fillRect(-s*1.4, -s*.3, s*2.9, s*.18);
+    circ(c, s*.55, s*.12, s*.22, '#fff'); circ(c, s*.55, s*.12, s*.1, '#e8483f');
+    c.strokeStyle = 'rgba(255,255,255,.85)'; c.lineWidth = s*.1; c.lineCap = 'round';
+    c.beginPath(); for (let i = 0; i < 4; i++) { const wx = -s*1.5 + i*s*.9; c.moveTo(wx, s*.6); c.quadraticCurveTo(wx + s*.22, s*.42 + Math.sin(now*4 + i)*s*.06, wx + s*.45, s*.6); } c.stroke();
+  }
+  c.restore();
+}
+function drawFlame(c, x, y, s){
+  for (const [k, col] of [[1, '#ff6a2e'], [.62, '#ffb23f'], [.32, '#fff1a0']]) {
+    const h = s*k*(1 + .12*Math.sin(now*14 + x + k*5));
+    c.fillStyle = col; c.beginPath(); c.moveTo(x, y - h*1.5);
+    c.quadraticCurveTo(x + h*.85, y - h*.4, x + h*.45, y); c.quadraticCurveTo(x, y + h*.15, x - h*.45, y);
+    c.quadraticCurveTo(x - h*.85, y - h*.4, x, y - h*1.5); c.fill();
+  }
+}
+function drawRaccoon(c, x, y, s, mood){
+  c.fillStyle = '#9aa0ab';
+  for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(x + sd*s*.25, y - s*.75); c.lineTo(x + sd*s*.8, y - s*1.3); c.lineTo(x + sd*s*.95, y - s*.35); c.closePath(); c.fill(); }
+  rr(c, x - s*.6, y + s*.6, s*1.2, s*1.0, s*.4); c.fill();
+  circ(c, x, y, s, '#9aa0ab');
+  for (const sd of [-1, 1]) ell(c, x + sd*s*.38, y - s*.1, s*.4, s*.3, '#4a4f5c', sd*.3);
+  ell(c, x, y + s*.4, s*.5, s*.38, '#fff');
+  drawFace(c, x, y + s*.05, s*.62, {mood, noCheeks:true, seed:7});
+  ell(c, x, y + s*.16, s*.12, s*.09, '#2b1b3d');
+}
+function drawPie(c, x, y, s){ ell(c, x, y, s, s*.6, '#e8a04a'); ell(c, x, y - s*.12, s*.8, s*.42, '#f6c877'); }
+function drawKitten(c, x, y, s, mood){
+  c.fillStyle = '#ffa94d';
+  for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(x + sd*s*.2, y - s*.6); c.lineTo(x + sd*s*.68, y - s*1.1); c.lineTo(x + sd*s*.78, y - s*.3); c.closePath(); c.fill(); }
+  circ(c, x, y, s*.8, '#ffa94d'); ell(c, x, y + s*.3, s*.4, s*.28, '#fff1dc');
+  drawFace(c, x, y - s*.05, s*.62, {mood, noCheeks:true, seed:4});
+}
+function drawDuckling(c, x, y, s){
+  ell(c, x, y + s*.2, s*.75, s*.5, '#ffd93b'); circ(c, x + s*.4, y - s*.4, s*.42, '#ffd93b');
+  c.fillStyle = '#ff9a2e'; c.beginPath(); c.moveTo(x + s*.75, y - s*.45); c.lineTo(x + s*1.12, y - s*.33); c.lineTo(x + s*.75, y - s*.22); c.closePath(); c.fill();
+  circ(c, x + s*.5, y - s*.5, s*.07, '#2b1b3d');
+}
+
+/* ---------- геометрия ---------- */
+function geo(){
+  const a = area; let S; const slots = [];
+  if (land) {
+    S = {x:a.x0, y:a.y0, w:a.w*.6, h:a.h};
+    const gx = a.x0 + a.w*.6, cw = a.w*.4/2, ch = a.h/2;
+    for (let i = 0; i < 4; i++) slots.push({x:gx + cw*(i % 2 + .5), y:a.y0 + ch*(Math.floor(i/2) + .62), s:Math.min(cw*.3, ch*.27)});
+  } else {
+    S = {x:a.x0, y:a.y0, w:a.w, h:a.h*.5};
+    const cw = a.w/2, ch = a.h*.5/2;
+    for (let i = 0; i < 4; i++) slots.push({x:a.x0 + cw*(i % 2 + .5), y:S.y + S.h + ch*(Math.floor(i/2) + .62), s:Math.min(cw*.26, ch*.3)});
+  }
+  const u = Math.min(S.w, S.h)*.1, gy = S.y + S.h*.5;
+  const g = {S, slots, u, gy,
+    house:{x:S.x + S.w*.2, y:gy + u*1.5}, peak:{x:S.x + S.w*.74, y:S.y + S.h*.22},
+    road:{x:S.x + S.w*.5, y:S.y + S.h*.84}, river:{x:S.x + S.w*.84, y:S.y + S.h*.8}};
+  g.spot = {fire:{x:g.house.x, y:g.house.y - u*2.2}, thief:g.road, water:g.river, high:g.peak};
+  g.alert = {fire:{x:g.house.x + u*2.2, y:g.house.y - u*3.2}, thief:{x:g.road.x, y:g.road.y - u*2.6}, water:{x:g.river.x, y:g.river.y - u*2.0}, high:{x:g.peak.x - u*1.9, y:g.peak.y + u*1.3}};
+  g.target = {fire:{x:g.house.x + u*3.1, y:g.house.y + u*.3}, thief:{x:g.road.x - u*2.6, y:g.road.y}, water:{x:g.river.x - u*1.3, y:g.river.y + u*.2}, high:{x:g.peak.x - u*2.1, y:g.peak.y + u*.5}};
+  return g;
+}
+
+/* ---------- ход игры ---------- */
+let pp = {call:null, phase:'idle', t:0, hero:-1, wrong:{i:-1, t:0}, nextAt:0, last:null};
+function newCall(quiet){
+  const keys = Object.keys(CALLS).filter(k => k !== pp.last);
+  pp = {call:pick(keys), phase:'wait', t:0, hero:-1, wrong:{i:-1, t:0}, nextAt:0, last:pp.last};
+  pp.last = pp.call;
+  if (!quiet) { tone(880, .18, {type:'square', vol:.05}); tone(880, .18, {type:'square', vol:.05, when:.3}); speak(L(CALLS[pp.call].call)); }
+}
+function update(dt){
+  pp.t += dt; pp.wrong.t = Math.max(0, pp.wrong.t - dt);
+  const g = geo();
+  if (pp.phase === 'go' && pp.t > 1.7) { pp.phase = 'fix'; pp.t = 0; if (pp.call === 'fire' || pp.call === 'water') sfx.splash(); else sfx.pick(); }
+  else if (pp.phase === 'fix') {
+    if (pp.call === 'fire' && Math.random() < .7) { const tg = g.target.fire; puff(tg.x - g.u*1.3, tg.y - g.u*1.2, '#8fd8ff', 2, {vx:-g.u*9, vy:-g.u*7, g:g.u*14, r:rand(3, 6), decay:1.4}); }
+    if (pp.t > 1.7) {
+      pp.phase = 'back'; pp.t = 0;
+      sfx.success(); addStar(g.spot[pp.call].x, g.spot[pp.call].y);
+      speak(praise() + ' ' + L(CALLS[pp.call].done));
+    }
+  } else if (pp.phase === 'back' && pp.t > 1.6) { pp.phase = 'done'; pp.t = 0; pp.nextAt = now + 3.2; }
+  if (pp.nextAt && now > pp.nextAt) newCall();
+}
+function tap(x, y){
+  const g = geo();
+  for (let i = 0; i < 4; i++) {
+    const sl = g.slots[i];
+    if (Math.abs(x - sl.x) < sl.s*2.2 && Math.abs(y - (sl.y - sl.s*.4)) < sl.s*2.2) {
+      if (pp.phase !== 'wait') { if (pp.phase === 'done') { sfx.tap(); speak(L(PUPS[i].intro)); } return; }
+      if (PUPS[i].id === CALLS[pp.call].pup) { pp.phase = 'go'; pp.t = 0; pp.hero = i; if (PUPS[i].id === 'pilot') sfx.whoosh(); else sfx.siren(); }
+      else { pp.wrong = {i, t:.6}; sfx.soft(); speak(L(PUPS[i].intro) + ' ' + L(OTHER)); }
+      return;
+    }
+  }
+  if (pp.phase === 'wait' && y < g.S.y + g.S.h && x < g.S.x + g.S.w) { sfx.tap(); speak(L(CALLS[pp.call].call)); }
+}
+function render(){
+  const c = ctx, a = area, g = geo(), S = g.S, u = g.u, gy = g.gy;
+  // небо, солнце, облака
+  const sg = c.createLinearGradient(0, 0, 0, gy); sg.addColorStop(0, '#7fd0f5'); sg.addColorStop(1, '#d4f3ff');
+  c.fillStyle = sg; c.fillRect(0, 0, W, gy + 5);
+  circ(c, S.x + S.w*.42, S.y + u*1.3, u*.9, '#ffd93b');
+  for (const [fx, fy, k] of [[.12, .12, 1], [.55, .3, .7]]) { const x = S.x + S.w*fx + Math.sin(now*.1 + fx*9)*u, y = S.y + S.h*fy; for (const [dx, r] of [[0, .5], [.55, .4], [-.5, .36]]) circ(c, x + dx*u*k, y, r*u*k, 'rgba(255,255,255,.85)'); }
+  // гора
+  const pk = g.peak, bw = S.w*.26, pTop = pk.y + u*.8;
+  c.fillStyle = '#8f9bb8'; c.beginPath(); c.moveTo(pk.x - bw, gy + u); c.lineTo(pk.x, pTop); c.lineTo(pk.x + bw, gy + u); c.closePath(); c.fill();
+  c.fillStyle = '#fff'; c.beginPath(); c.moveTo(pk.x, pTop); const k2 = .28, hh = gy + u - pTop;
+  c.lineTo(pk.x + bw*k2, pTop + hh*k2); c.lineTo(pk.x + bw*.1, pTop + hh*.2); c.lineTo(pk.x - bw*.08, pTop + hh*.3); c.lineTo(pk.x - bw*k2, pTop + hh*k2); c.closePath(); c.fill();
+  // земля, тропинка, река
+  c.fillStyle = '#7ac74f'; c.fillRect(0, gy, W, H - gy);
+  ell(c, g.road.x - u, g.road.y + u*.75, S.w*.36, u*.75, '#ecd9a3');
+  ell(c, g.river.x + u*1.2, g.river.y + u*.5, S.w*.24, u*1.5, '#4fb8e8'); ell(c, g.river.x + u*.8, g.river.y + u*.2, S.w*.12, u*.5, 'rgba(255,255,255,.25)');
+  // домик
+  const hs = g.house, fixing = pp.call === 'fire' && (pp.phase === 'fix' || pp.phase === 'back' || pp.phase === 'done');
+  c.fillStyle = '#ffe0a3'; c.fillRect(hs.x - u*1.5, hs.y - u*2.2, u*3, u*2.2);
+  c.fillStyle = '#e8604a'; c.beginPath(); c.moveTo(hs.x - u*1.9, hs.y - u*2.2); c.lineTo(hs.x, hs.y - u*3.7); c.lineTo(hs.x + u*1.9, hs.y - u*2.2); c.closePath(); c.fill();
+  rr(c, hs.x - u*.4, hs.y - u*1.2, u*.8, u*1.2, u*.1); c.fillStyle = '#a8703e'; c.fill();
+  rr(c, hs.x + u*.6, hs.y - u*1.8, u*.6, u*.6, u*.08); c.fillStyle = '#9adfff'; c.fill();
+  if (pp.call === 'fire' && pp.phase !== 'done') {
+    const f = pp.phase === 'fix' ? 1 - pp.t/1.7 : pp.phase === 'back' ? 0 : 1;
+    if (f > 0) { drawFlame(c, hs.x - u*.6, hs.y - u*2.6, u*1.1*f); drawFlame(c, hs.x + u*.7, hs.y - u*2.2, u*.8*f); drawFlame(c, hs.x + u*.1, hs.y - u*3.0, u*.7*f); }
+    if (fixing && Math.random() < .2) puff(hs.x + rand(-u, u), hs.y - u*3, 'rgba(230,230,240,.7)', 1, {vy:-u*3, r:rand(4, 8), decay:.9});
+  }
+  // действующие лица вызова
+  const hero = pp.hero >= 0 ? PUPS[pp.hero] : null;
+  let vx = 0, vy = 0, vs = 0, vdir = 1;
+  if (hero) {
+    const sl = g.slots[pp.hero], tg = g.target[pp.call], ss = u*.95;
+    let k = pp.phase === 'go' ? ease(Math.min(1, pp.t/1.7)) : pp.phase === 'fix' ? 1 : pp.phase === 'back' ? 1 - ease(Math.min(1, pp.t/1.6)) : 0;
+    vx = lerp(sl.x, tg.x, k); vy = lerp(sl.y, tg.y, k) - Math.sin(k*Math.PI)*(hero.id === 'pilot' ? u*2 : 0); vs = lerp(sl.s, ss, k);
+    vdir = pp.phase === 'back' ? (sl.x < tg.x ? -1 : 1) : (tg.x < sl.x ? -1 : 1);
+    if (pp.phase === 'fix') vdir = pp.call === 'fire' ? -1 : 1;
+  }
+  const riding = pp.phase === 'back' || (pp.phase === 'fix' && pp.t > .9);
+  if (pp.call === 'thief' && pp.phase !== 'idle') {
+    const caught = pp.phase === 'fix' || pp.phase === 'back' || pp.phase === 'done';
+    const rx = g.road.x + (caught ? 0 : Math.sin(now*2)*u*1.2), ry = g.road.y - (caught ? 0 : Math.abs(Math.sin(now*10))*u*.25);
+    drawRaccoon(c, rx, ry - u*.6, u*.62, caught ? 'scared' : 'happy');
+    drawPie(c, rx + (caught ? -u*1.2 : u*.85), ry + (caught ? u*.5 : u*.2), u*.42);
+  }
+  if (pp.call === 'water' && pp.phase !== 'idle' && pp.phase !== 'done') {
+    if (riding) drawDuckling(c, vx + vs*.95*vdir, vy - vs*.75, u*.42);
+    else { const dx = g.river.x + u*1.0 + Math.sin(now*1.5)*u*.5; drawDuckling(c, dx, g.river.y + Math.sin(now*4)*u*.1, u*.5); if (Math.random() < .06) puff(dx, g.river.y - u*.6, '#bfeaff', 1, {vy:-30, r:3}); }
+  }
+  if (pp.call === 'high' && pp.phase !== 'idle' && pp.phase !== 'done') {
+    if (riding) drawKitten(c, vx - vs*1.0*vdir, vy - vs*.45, u*.5, 'happy');
+    else drawKitten(c, pk.x + Math.sin(now*12)*u*.04, pTop - u*.35, u*.6, 'scared');
+  }
+  // знак тревоги
+  if (pp.phase === 'wait' && started) {
+    const sp = g.alert[pp.call], by = sp.y - Math.abs(Math.sin(now*5))*u*.4;
+    circ(c, sp.x, by, u*.62, '#ff4438'); c.fillStyle = '#fff'; c.font = `900 ${u*.95}px Nunito, system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('!', sp.x, by + u*.04);
+  }
+  // база щенков
+  c.fillStyle = '#ffe6a8';
+  if (land) { rr(c, S.x + S.w, -20, W, H + 40, 28); c.fill(); } else { rr(c, -20, S.y + S.h, W + 40, H, 28); c.fill(); }
+  PUPS.forEach((p, i) => {
+    const sl = g.slots[i];
+    ell(c, sl.x, sl.y + sl.s*.75, sl.s*1.9, sl.s*.4, 'rgba(180,130,60,.25)');
+    if (i === pp.hero && pp.phase !== 'done') return;
+    const w = pp.wrong.i === i && pp.wrong.t > 0 ? Math.sin(pp.wrong.t*30)*.12 : 0;
+    const hop = pp.phase === 'wait' ? Math.abs(Math.sin(now*4 + i*1.3))*sl.s*.1 : 0;
+    drawPupIn(c, p, sl.x, sl.y - hop, sl.s, {rot:w, mood:pp.phase === 'done' && i === pp.hero ? 'happy' : 'normal'});
+  });
+  if (hero && pp.phase !== 'done') drawPupIn(c, hero, vx, vy, vs, {dir:vdir, mood:'happy', siren:true});
+}
+
+kitStart({
+  key:'puppies', icon:'🐶', title:{ru:'Щенки-спасатели', kk:'Құтқарушы күшіктер'},
+  modes:[{id:'rescue', icon:'🐶', name:{ru:'Спасатели', kk:'Құтқарушылар'}}],
+  setMode(m, quiet){ subTop = true; pp.last = null; newCall(quiet); },
+  lang(){ if (pp.phase === 'wait') speak(L(CALLS[pp.call].call)); },
+  update, render, down:tap
+});
+</script>
+</body>
+</html>
