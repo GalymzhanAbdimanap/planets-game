@@ -181,7 +181,7 @@ function newCall(quiet){
   const keys = Object.keys(CALLS).filter(k => k !== pp.last);
   pp = {call:pick(keys), phase:'wait', t:0, hero:-1, wrong:{i:-1, t:0}, nextAt:0, last:pp.last};
   pp.last = pp.call;
-  if (!quiet) { tone(880, .18, {type:'square', vol:.05}); tone(880, .18, {type:'square', vol:.05, when:.3}); speak(L(CALLS[pp.call].call)); }
+  if (!quiet) { tone(784, .2, {type:'triangle', vol:.09}); tone(988, .25, {type:'triangle', vol:.09, when:.28}); speak(L(CALLS[pp.call].call)); }
 }
 function update(dt){
   pp.t += dt; pp.wrong.t = Math.max(0, pp.wrong.t - dt);

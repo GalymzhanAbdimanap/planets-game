@@ -77,12 +77,35 @@ function stopSpeak(){
 }
 
 /* ---------- звуки и музыка (Web Audio) ---------- */
-let ac = null, master = null, musicOn = true, nextNote = 0;
+let ac = null, master = null, synthBus = null, musicOn = true, nextNote = 0;
+/* Записанные звуки (папка sfx/, подобраны из библиотеки Kenney, громкость выровнена).
+   Если файл не загрузился (например, игра открыта с диска, а не с сайта),
+   звучит мягкий синтезированный запасной вариант. */
+const SFX_FILES = ['tap','pick','open','success','celebrate','try','sparkle','chomp','step'];
+const sfxBuf = {};
+function loadSfx(){
+  for (const name of SFX_FILES) {
+    fetch('sfx/' + name + '.mp3')
+      .then(r => r.ok ? r.arrayBuffer() : Promise.reject())
+      .then(b => new Promise((ok, no) => ac.decodeAudioData(b, ok, no)))
+      .then(buf => { sfxBuf[name] = buf; })
+      .catch(() => {});
+  }
+}
+function playSfx(name){
+  const b = sfxBuf[name];
+  if (!b || !ac) return false;
+  const s = ac.createBufferSource(); s.buffer = b; s.connect(master); s.start();
+  return true;
+}
 function audio(){
   if (!ac) {
     try {
       ac = new (window.AudioContext || window.webkitAudioContext)();
       master = ac.createGain(); master.gain.value = 0.9; master.connect(ac.destination);
+      // синтезированные звуки идут через фильтр, срезающий резкие верхние частоты
+      synthBus = ac.createBiquadFilter(); synthBus.type = 'lowpass'; synthBus.frequency.value = 3200; synthBus.connect(master);
+      loadSfx();
     } catch (e) { return null; }
   }
   if (ac.state === 'suspended') ac.resume();
@@ -97,7 +120,7 @@ function tone(freq, dur, {type='sine', vol=.12, when=0, to=null, attack=.01}={})
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(vol, t0 + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g); g.connect(master);
+  o.connect(g); g.connect(synthBus);
   o.start(t0); o.stop(t0 + dur + .05);
 }
 function noise(dur, f0, f1, vol=.1){
@@ -107,27 +130,29 @@ function noise(dur, f0, f1, vol=.1){
   const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
   s.buffer = buf; f.type = 'bandpass'; f.Q.value = 1.2;
   f.frequency.setValueAtTime(f0, ac.currentTime); f.frequency.exponentialRampToValueAtTime(f1, ac.currentTime + dur);
-  g.gain.value = vol; s.connect(f); f.connect(g); g.connect(master); s.start();
+  g.gain.value = vol; s.connect(f); f.connect(g); g.connect(synthBus); s.start();
 }
+// для звуков без записи — только мягкие формы волны (sine / triangle), без «пищащих» square и sawtooth
 const sfx = {
-  tap(){ tone(660,.14,{vol:.1}); tone(990,.12,{vol:.05,when:.04}); },
-  open(){ tone(440,.25,{type:'triangle',vol:.1,to:880}); },
-  success(){ [523,659,784,1047].forEach((f,i)=>tone(f,.35,{type:'triangle',vol:.11,when:i*.09})); },
-  big(){ [523,659,784,1047,1319,1568].forEach((f,i)=>tone(f,.5,{type:'triangle',vol:.1,when:i*.1})); },
-  soft(){ tone(330,.28,{type:'triangle',vol:.08,to:240}); },
-  pick(){ tone(520,.1,{vol:.08,to:700}); },
-  whoosh(){ noise(1.1, 300, 2000, .12); },
-  splash(){ noise(.5, 1800, 500, .12); },
-  sparkle(){ [1319,1568,1760,2093].forEach((f,i)=>tone(f,.25,{vol:.05,when:i*.06})); },
-  boing(){ tone(180,.35,{type:'triangle',vol:.14,to:720}); },
-  chomp(){ tone(170,.09,{type:'square',vol:.06}); tone(140,.09,{type:'square',vol:.06,when:.13}); },
-  growl(){ tone(95,.4,{type:'sawtooth',vol:.05,to:70}); },
-  giggle(){ [880,1100,920,1180,980].forEach((f,i)=>tone(f,.09,{vol:.08,when:i*.08})); },
-  meow(){ tone(780,.32,{type:'triangle',vol:.1,to:520}); },
-  quack(){ tone(420,.09,{type:'square',vol:.05}); tone(380,.11,{type:'square',vol:.05,when:.12}); },
-  honk(){ tone(350,.2,{type:'square',vol:.05}); },
-  siren(){ for (let i = 0; i < 6; i++) tone(i % 2 ? 640 : 860, .27, {type:'triangle', vol:.08, when:i*.27}); },
-  brush(){ noise(.12, 2500, 3500, .05); }
+  tap(){ playSfx('tap') || tone(660,.12,{vol:.07}); },
+  open(){ playSfx('open') || tone(440,.25,{type:'triangle',vol:.08,to:880}); },
+  success(){ playSfx('success') || [523,659,784,1047].forEach((f,i)=>tone(f,.35,{type:'triangle',vol:.09,when:i*.09})); },
+  big(){ playSfx('celebrate') || [523,659,784,1047,1319].forEach((f,i)=>tone(f,.5,{type:'triangle',vol:.08,when:i*.1})); },
+  soft(){ playSfx('try') || tone(330,.28,{type:'triangle',vol:.07,to:240}); },
+  pick(){ playSfx('pick') || tone(520,.1,{vol:.07,to:700}); },
+  sparkle(){ playSfx('sparkle') || [1047,1319,1568].forEach((f,i)=>tone(f,.25,{vol:.04,when:i*.06})); },
+  chomp(){ playSfx('chomp') || (tone(170,.09,{type:'triangle',vol:.08}), tone(140,.09,{type:'triangle',vol:.08,when:.13})); },
+  step(){ playSfx('step') || tone(200,.1,{type:'triangle',vol:.07,to:150}); },
+  whoosh(){ noise(1.1, 300, 1600, .08); },
+  splash(){ noise(.5, 1500, 400, .08); },
+  boing(){ tone(180,.35,{type:'triangle',vol:.11,to:620}); },
+  growl(){ tone(110,.4,{type:'triangle',vol:.08,to:80}); },
+  giggle(){ [700,880,760,940,800].forEach((f,i)=>tone(f,.09,{vol:.06,when:i*.08})); },
+  meow(){ tone(700,.32,{type:'triangle',vol:.08,to:480}); },
+  quack(){ tone(420,.09,{type:'triangle',vol:.08}); tone(380,.11,{type:'triangle',vol:.08,when:.12}); },
+  honk(){ tone(350,.2,{type:'triangle',vol:.08}); tone(352,.2,{vol:.05}); },
+  siren(){ for (let i = 0; i < 6; i++) tone(i % 2 ? 600 : 780, .27, {vol:.07, when:i*.27}); },
+  brush(){ noise(.12, 1800, 2600, .035); }
 };
 const SCALE = [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3, 659.3];
 function musicTick(){
