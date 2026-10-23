@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#ffe6a8">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Читаем и считаем</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔤</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<script src="kit.js"></script>
+<script>
+'use strict';
+/* =========================================================
+   ЧИТАЕМ И СЧИТАЕМ — следующий шаг для ребёнка, который уже знает буквы и цифры.
+   syl   — монстрик просит слог, ребёнок находит карточку
+   word  — картинка + пустые клеточки, собрать слово из букв
+   count — сколько предметов? → цифра; потом до 10; потом сложение
+   ========================================================= */
+const SYL = {
+  ru:['МА','МО','МУ','ПА','ПО','ЛА','ЛУ','СА','СО','ДА','ДО','ТА','НА','РА','КА','БА'],
+  kk:['МА','ПА','СА','ТА','ҚА','ДА','БА','ЖА','НА','ЛА','АТ','АЙ','ҮЙ','ОТ']
+};
+const WORDS = {
+  ru:[{w:'КОТ', pic:'cat'}, {w:'ДОМ', pic:'house'}, {w:'СЫР', pic:'cheese'}, {w:'ЖУК', pic:'bug'}, {w:'МАК', pic:'flower'}, {w:'МЯЧ', pic:'ball'}, {w:'ЛУНА', pic:'moon'}],
+  kk:[{w:'ҮЙ', pic:'house'}, {w:'АЙ', pic:'moon'}, {w:'ОТ', pic:'fire'}, {w:'ШАР', pic:'ball'}, {w:'ҚАЗ', pic:'goose'}, {w:'ИТ', pic:'dog'}, {w:'АЛМА', pic:'apple'}]
+};
+const ABC = {ru:'АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЫЭЮЯ', kk:'АӘБГҒДЕЖЗИКҚЛМНҢОӨПРСТУҰҮЫІШ'};
+const NUMW = {
+  ru:['ноль','один','два','три','четыре','пять','шесть','семь','восемь','девять','десять'],
+  kk:['нөл','бір','екі','үш','төрт','бес','алты','жеті','сегіз','тоғыз','он']
+};
+const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+const TX = {
+  syl:{ru:s => `Найди слог ${s.toLowerCase()}!`, kk:s => `${cap(s.toLowerCase())} буынын тап!`},
+  sylRight:{ru:s => `Ам-ам! ${cap(s.toLowerCase())}!`, kk:s => `Ам-ам! ${cap(s.toLowerCase())}!`},
+  sylWrong:{ru:s => `Это ${s.toLowerCase()}. Попробуй ещё!`, kk:s => `Бұл — ${s.toLowerCase()}. Тағы байқап көр!`},
+  word:{ru:w => `Это ${w.toLowerCase()}. Собери слово ${w.toLowerCase()} из букв!`, kk:w => `Бұл — ${w.toLowerCase()}. ${cap(w.toLowerCase())} сөзін әріптерден құрастыр!`},
+  wordDone:{ru:w => `Молодец! Получилось слово ${w.toLowerCase()}!`, kk:w => `Жарайсың! ${w.toLowerCase()} сөзі шықты!`},
+  wrongLetter:{ru:'Другая буква. Послушай ещё раз!', kk:'Басқа әріп. Тағы тыңда!'},
+  howMany:{ru:'Сколько тут яблок? Найди цифру!', kk:'Мұнда неше алма? Цифрын тап!'},
+  plus:{ru:(a, b) => `${cap(NUMW.ru[a])} и ещё ${NUMW.ru[b]}. Сколько всего яблок?`, kk:(a, b) => `${cap(NUMW.kk[a])} және тағы ${NUMW.kk[b]}. Барлығы неше алма?`},
+  countRight:{ru:n => `${cap(NUMW.ru[n])}! Правильно!`, kk:n => `${cap(NUMW.kk[n])}! Дұрыс!`},
+  countWrong:{ru:n => `Это ${NUMW.ru[n]}. Посчитай ещё раз!`, kk:n => `Бұл — ${NUMW.kk[n]}. Тағы бір рет сана!`},
+  levelUp:{ru:'Ого, ты умеешь! Давай посложнее.', kk:'Ойбай, сен білесің! Енді қиынырақ.'}
+};
+
+/* ---------- монстрик (из «Монстр-огорода») ---------- */
+function drawMonster(c, x, y, s, open, mood){
+  const col = '#4fc3c9';
+  for (const sd of [-1, 1]) { ell(c, x + sd*s*.45, y + s*1.0, s*.3, s*.16, '#3a9aa0'); circ(c, x + sd*s*1.05, y + s*.15, s*.22, col); }
+  c.fillStyle = '#ffe9b0';
+  for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(x + sd*s*.35, y - s*.85); c.lineTo(x + sd*s*.62, y - s*1.35); c.lineTo(x + sd*s*.72, y - s*.72); c.closePath(); c.fill(); }
+  ell(c, x, y, s, s*1.02, col);
+  c.fillStyle = shade(c, x, y, s); c.beginPath(); c.arc(x, y, s, 0, 7); c.fill();
+  drawFace(c, x, y - s*.38, s*.6, {mood:mood === 'yuck' ? 'normal' : mood, noMouth:true, seed:5});
+  const mh = s*(.1 + .38*open), my = y + s*.32;
+  ell(c, x, my, s*.62, mh, '#5a1d2d');
+  if (open > .3) ell(c, x, my + mh*.5, s*.32, mh*.35, '#ff8fa3');
+  c.fillStyle = '#fff';
+  for (const tx of [-.3, 0, .3]) { c.beginPath(); c.moveTo(x + (tx - .1)*s, my - mh*.9); c.lineTo(x + tx*s, my - mh*.9 + s*.16); c.lineTo(x + (tx + .1)*s, my - mh*.9); c.fill(); }
+}
+
+/* ---------- картинки для слов ---------- */
+function drawPic(c, pic, x, y, s){
+  const ink = '#2b1b3d';
+  if (pic === 'cat') {
+    const g = '#ffa94d'; c.fillStyle = g;
+    for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(x + sd*s*.2, y - s*.6); c.lineTo(x + sd*s*.68, y - s*1.1); c.lineTo(x + sd*s*.78, y - s*.3); c.closePath(); c.fill(); }
+    circ(c, x, y, s*.8, g); drawFace(c, x, y - s*.05, s*.62, {mood:'happy', noCheeks:true});
+  } else if (pic === 'house') {
+    c.fillStyle = '#ffe0a3'; c.fillRect(x - s*.8, y - s*.3, s*1.6, s*1.1);
+    c.fillStyle = '#e8604a'; c.beginPath(); c.moveTo(x - s*1.05, y - s*.3); c.lineTo(x, y - s*1.15); c.lineTo(x + s*1.05, y - s*.3); c.closePath(); c.fill();
+    rr(c, x - s*.22, y + s*.25, s*.44, s*.55, s*.06); c.fillStyle = '#a8703e'; c.fill();
+    rr(c, x + s*.3, y - s*.1, s*.32, s*.32, s*.05); c.fillStyle = '#9adfff'; c.fill();
+  } else if (pic === 'cheese') {
+    c.fillStyle = '#ffd23f'; c.beginPath(); c.moveTo(x - s*.9, y + s*.6); c.lineTo(x + s*.9, y + s*.6); c.lineTo(x + s*.9, y - s*.1); c.lineTo(x - s*.9, y - s*.6); c.closePath(); c.fill();
+    for (const [dx, dy, r] of [[-.4, .2, .15], [.3, .3, .12], [.5, .0, .1], [-.05, -.05, .09]]) circ(c, x + dx*s, y + dy*s, r*s, '#f0b020');
+  } else if (pic === 'bug') {
+    circ(c, x, y - s*.65, s*.32, ink);
+    circ(c, x, y + s*.1, s*.75, '#ef4b3f');
+    c.strokeStyle = ink; c.lineWidth = s*.06; c.beginPath(); c.moveTo(x, y - s*.6); c.lineTo(x, y + s*.85); c.stroke();
+    for (const [dx, dy] of [[-.35, -.15], [.35, -.15], [-.4, .35], [.4, .35]]) circ(c, x + dx*s, y + dy*s, s*.13, ink);
+  } else if (pic === 'flower') {
+    c.strokeStyle = '#3f9a4a'; c.lineWidth = s*.12; c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + s*1.0); c.stroke();
+    for (let i = 0; i < 5; i++) { const a = i/5*Math.PI*2; circ(c, x + Math.cos(a)*s*.42, y - s*.25 + Math.sin(a)*s*.42, s*.4, '#ef4b3f'); }
+    circ(c, x, y - s*.25, s*.22, ink);
+  } else if (pic === 'ball') {
+    circ(c, x, y, s*.85, '#3f7de8');
+    c.save(); c.beginPath(); c.arc(x, y, s*.85, 0, 7); c.clip();
+    c.fillStyle = '#ffd23f'; c.fillRect(x - s, y - s*.2, s*2, s*.4); c.fillStyle = '#fff'; c.fillRect(x - s*.2, y - s, s*.4, s*2); c.restore();
+  } else if (pic === 'moon') {
+    circ(c, x, y, s*.85, '#ffe36b'); circ(c, x + s*.4, y - s*.25, s*.72, '#fff7e0');
+  } else if (pic === 'fire') {
+    for (const [k, col] of [[1, '#ff6a2e'], [.62, '#ffb23f'], [.32, '#fff1a0']]) {
+      const h = s*k*(1 + .1*Math.sin(now*12 + k*5));
+      c.fillStyle = col; c.beginPath(); c.moveTo(x, y + s*.6 - h*1.6);
+      c.quadraticCurveTo(x + h*.85, y + s*.6 - h*.5, x + h*.45, y + s*.6); c.quadraticCurveTo(x, y + s*.75, x - h*.45, y + s*.6);
+      c.quadraticCurveTo(x - h*.85, y + s*.6 - h*.5, x, y + s*.6 - h*1.6); c.fill();
+    }
+  } else if (pic === 'goose') {
+    ell(c, x, y + s*.35, s*.8, s*.5, '#fff'); c.strokeStyle = '#fff'; c.lineWidth = s*.25; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(x + s*.45, y + s*.2); c.quadraticCurveTo(x + s*.6, y - s*.4, x + s*.35, y - s*.6); c.stroke();
+    circ(c, x + s*.35, y - s*.65, s*.25, '#fff');
+    c.fillStyle = '#ff9a2e'; c.beginPath(); c.moveTo(x + s*.1, y - s*.7); c.lineTo(x - s*.25, y - s*.6); c.lineTo(x + s*.1, y - s*.52); c.closePath(); c.fill();
+    circ(c, x + s*.38, y - s*.72, s*.06, ink);
+  } else if (pic === 'dog') {
+    for (const sd of [-1, 1]) ell(c, x + sd*s*.75, y + s*.1, s*.26, s*.52, '#8a5a2b', sd*-.25);
+    circ(c, x, y, s*.8, '#c98a4b'); ell(c, x, y + s*.32, s*.42, s*.32, '#f3dcc0');
+    drawFace(c, x, y + s*.02, s*.5, {mood:'happy', noCheeks:true}); ell(c, x, y + s*.15, s*.13, s*.09, ink);
+  } else if (pic === 'apple') {
+    circ(c, x - s*.3, y - s*.05, s*.6, '#e63946'); circ(c, x + s*.3, y - s*.05, s*.6, '#e63946'); ell(c, x, y + s*.15, s*.7, s*.68, '#e63946');
+    c.strokeStyle = '#7a4a2a'; c.lineWidth = s*.09; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, y - s*.45); c.lineTo(x + s*.08, y - s*.85); c.stroke();
+    ell(c, x + s*.35, y - s*.8, s*.27, s*.12, '#4aa53f', -.5);
+  }
+}
+// карточка с буквами
+function drawCard(c, x, y, w, h, text, o = {}){
+  c.save(); c.translate(x, y);
+  if (o.shake) c.translate(Math.sin(o.shake*40)*w*.06, 0);
+  if (o.k !== undefined) c.scale(o.k, o.k);
+  rr(c, -w/2, -h/2 + 5, w, h, h*.22); c.fillStyle = 'rgba(0,0,0,.15)'; c.fill();
+  rr(c, -w/2, -h/2, w, h, h*.22); c.fillStyle = o.bg || '#ffffff'; c.fill();
+  c.lineWidth = 3; c.strokeStyle = o.border || '#3f7de8'; c.stroke();
+  c.fillStyle = o.ink || '#2a1d4d'; c.font = `900 ${h*.56}px Nunito, system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(text, 0, h*.04);
+  c.restore();
+}
+function bgPaper(){
+  ctx.fillStyle = '#fff6dc'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(63,125,232,.12)'; ctx.lineWidth = 2;
+  for (let y = 0; y < H; y += 34) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+}
+const say1 = t => t.toLowerCase();
+
+/* =========================================================
+   СЛОГИ
+   ========================================================= */
+let sy = {q:'', cards:[], fly:-1, chomp:0, mood:'normal', nextAt:0, shake:{i:-1, t:0}};
+function sylGeom(){
+  const a = area, s = Math.min(a.w*.22, a.h*.17);
+  const cw = Math.min(a.w*.27, s*1.6), ch = cw*.8;
+  return {mx:a.cx, my:a.y0 + a.h*.32, s, cw, ch, pos:i => ({x:a.cx + (i - 1)*cw*1.15, y:a.y1 - ch*1.0})};
+}
+function newSyl(){
+  const pool = shuffle(SYL[lang].slice());
+  sy.cards = pool.slice(0, 3); sy.q = pick(sy.cards); sy.fly = -1; sy.mood = 'normal'; sy.nextAt = 0;
+  speak(TX.syl[lang](sy.q));
+}
+function sylTap(x, y){
+  const g = sylGeom();
+  if (sy.fly >= 0 || sy.nextAt) return;
+  for (let i = 0; i < 3; i++) {
+    const p = g.pos(i);
+    if (Math.abs(x - p.x) < g.cw*.6 && Math.abs(y - p.y) < g.ch*.7) {
+      if (sy.cards[i] === sy.q) { sy.fly = i; sy.flyT = now; sfx.pick(); }
+      else { sy.shake = {i, t:.5}; sfx.soft(); speak(TX.sylWrong[lang](sy.cards[i]) ); }
+      return;
+    }
+  }
+  if (Math.hypot(x - g.mx, y - g.my) < g.s*1.4) { sfx.tap(); speak(TX.syl[lang](sy.q)); }
+}
+function updateSyl(dt){
+  sy.chomp = Math.max(0, sy.chomp - dt);
+  sy.shake.t = Math.max(0, sy.shake.t - dt);
+  if (sy.fly >= 0 && now - sy.flyT > .5 && !sy.nextAt) {
+    sy.chomp = .7; sy.mood = 'happy'; sfx.chomp(); addStar(sylGeom().mx, sylGeom().my);
+    speak(TX.sylRight[lang](sy.q)); sy.nextAt = now + 2.2;
+  }
+  if (sy.nextAt && now > sy.nextAt) newSyl();
+}
+function renderSyl(){
+  const c = ctx, g = sylGeom();
+  bgPaper();
+  let open = .25 + .08*Math.sin(now*3);
+  if (sy.fly >= 0 && !sy.nextAt) open = .4 + .6*Math.min(1, (now - sy.flyT)*2);
+  if (sy.chomp > 0) open = Math.abs(Math.sin(sy.chomp*18))*.8;
+  shadow(c, g.mx, g.my + g.s*1.1, g.s*.9);
+  drawMonster(c, g.mx, g.my, g.s, open, sy.mood);
+  // облачко со звуком
+  const bx = g.mx + g.s*1.4, by = g.my - g.s*.9;
+  circ(c, bx, by, g.s*.42, '#fff'); circ(c, bx - g.s*.42, by + g.s*.4, g.s*.1, '#fff');
+  c.fillStyle = '#3f7de8'; c.font = `900 ${g.s*.4}px Nunito, system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('🔊', bx, by);
+  sy.cards.forEach((t, i) => {
+    const p = g.pos(i);
+    if (i === sy.fly) {
+      const k = clamp((now - sy.flyT)/.5, 0, 1); if (k >= 1) return;
+      drawCard(c, lerp(p.x, g.mx, ease(k)), lerp(p.y, g.my + g.s*.3, ease(k)) - Math.sin(k*Math.PI)*g.s*.6, g.cw, g.ch, t, {k:1 - k*.6});
+      return;
+    }
+    drawCard(c, p.x, p.y + Math.sin(now*2.5 + i)*3, g.cw, g.ch, t, {shake:sy.shake.i === i ? sy.shake.t : 0});
+  });
+}
+
+/* =========================================================
+   СЛОВО
+   ========================================================= */
+let wd = {w:'', pic:'', tiles:[], filled:0, nextAt:0, idx:-1, miss:0};
+function wordGeom(){
+  const a = area, n = wd.w.length || 3;
+  const slot = Math.min(a.w*.8/Math.max(n, 3), a.h*(land ? .17 : .13), 84);
+  const tile = Math.min(a.w*.9/Math.max(wd.tiles.length, 4), slot*1.05);
+  const ps = Math.min(a.w, a.h)*(land ? .13 : .16);
+  return {px:a.cx, py:a.y0 + a.h*(land ? .2 : .25), ps, slot, tile,
+    slotPos:i => ({x:a.cx + (i - (n - 1)/2)*slot*1.12, y:a.y0 + a.h*(land ? .55 : .5)}),
+    tilePos:i => { const m = wd.tiles.length; return {x:a.cx + (i - (m - 1)/2)*tile*1.1, y:a.y1 - tile*1.0}; }};
+}
+function newWord(){
+  const list = WORDS[lang];
+  wd.idx = (wd.idx + 1) % list.length;
+  if (wd.idx === 0) WORDS[lang] = shuffle(list.slice());
+  const it = WORDS[lang][wd.idx];
+  wd.w = it.w; wd.pic = it.pic; wd.filled = 0; wd.nextAt = 0; wd.miss = 0;
+  const letters = it.w.split('');
+  const extra = shuffle(ABC[lang].split('').filter(ch => !letters.includes(ch))).slice(0, it.w.length > 3 ? 1 : 2);
+  wd.tiles = shuffle(letters.concat(extra)).map(ch => ({ch, used:false, t:0, shake:0}));
+  speak(TX.word[lang](it.w));
+}
+function wordTap(x, y){
+  const g = wordGeom();
+  if (wd.nextAt) return;
+  for (let i = 0; i < wd.tiles.length; i++) {
+    const tl = wd.tiles[i]; if (tl.used) continue;
+    const p = g.tilePos(i);
+    if (Math.abs(x - p.x) < g.tile*.55 && Math.abs(y - p.y) < g.tile*.6) {
+      if (tl.ch === wd.w[wd.filled]) {
+        tl.used = true; tl.slot = wd.filled; tl.t = now; wd.filled++; sfx.pick(); wd.miss = 0;
+        if (wd.filled === wd.w.length) { setTimeout(() => sfx.success(), 400); addStar(g.px, g.py); speak(TX.wordDone[lang](wd.w)); wd.nextAt = now + 3.2; }
+        else speak(tl.ch);
+      } else { tl.shake = now; wd.miss++; sfx.soft(); speak(L(TX.wrongLetter) + ' ' + say1(wd.w)); }
+      return;
+    }
+  }
+  if (Math.hypot(x - g.px, y - g.py) < g.ps*1.3) { sfx.tap(); speak(say1(wd.w)); }
+}
+function renderWord(){
+  const c = ctx, g = wordGeom();
+  bgPaper();
+  circ(c, g.px, g.py, g.ps*1.25, '#ffffff');
+  drawPic(c, wd.pic, g.px, g.py, g.ps);
+  for (let i = 0; i < wd.w.length; i++) {
+    const p = g.slotPos(i);
+    rr(c, p.x - g.slot/2, p.y - g.slot*.55, g.slot, g.slot*1.1, g.slot*.2); c.fillStyle = 'rgba(63,125,232,.12)'; c.fill();
+    c.setLineDash([6, 6]); c.lineWidth = 3; c.strokeStyle = 'rgba(63,125,232,.5)'; c.stroke(); c.setLineDash([]);
+  }
+  wd.tiles.forEach((tl, i) => {
+    const p = g.tilePos(i);
+    if (tl.used) {
+      const q = g.slotPos(tl.slot), k = ease(clamp((now - tl.t)/.35, 0, 1));
+      drawCard(c, lerp(p.x, q.x, k), lerp(p.y, q.y, k), g.slot*.92, g.slot, tl.ch, {bg:'#fff3b0', border:'#ffb21c'});
+    } else {
+      const sh = now - tl.shake < .5 ? .5 - (now - tl.shake) : 0;
+      drawCard(c, p.x, p.y + Math.sin(now*2.5 + i)*3, g.tile*.92, g.tile, tl.ch, {shake:sh});
+      if (wd.miss >= 2 && tl.ch === wd.w[wd.filled] && started) ring(c, p.x, p.y, g.tile*.75);
+    }
+  });
+  if (wd.nextAt && Math.random() < .2) puff(g.px + rand(-g.ps, g.ps), g.py + rand(-g.ps, g.ps), pick(COLORS), 1, {r:rand(3, 6)});
+}
+function updateWord(){ if (wd.nextAt && now > wd.nextAt) newWord(); }
+
+/* =========================================================
+   СЧЁТ: уровень 1 — до 5, уровень 2 — до 10, уровень 3 — сложение
+   ========================================================= */
+let ct = {lvl:1, streak:0, n:0, a:0, b:0, opts:[], nextAt:0, shake:{i:-1, t:0}, okAt:0};
+function countGeom(){
+  const a = area;
+  const card = Math.min(a.w*.24, a.h*.14, 96);
+  return {card, top:a.y0 + a.h*.06, bot:a.y1 - card*1.5, optPos:i => ({x:a.cx + (i - 1)*card*1.3, y:a.y1 - card*.85})};
+}
+function newCount(prefix = ''){
+  ct.nextAt = 0; ct.okAt = 0;
+  if (ct.lvl === 3) { ct.a = 1 + Math.floor(Math.random()*4); ct.b = 1 + Math.floor(Math.random()*Math.min(3, 5 - ct.a + 1)); ct.n = ct.a + ct.b; }
+  else { ct.n = 1 + Math.floor(Math.random()*(ct.lvl === 1 ? 5 : 10)); ct.a = ct.n; ct.b = 0; }
+  const max = ct.lvl === 1 ? 5 : 10, set = new Set([ct.n]);
+  while (set.size < 3) { const v = clamp(ct.n + pick([-2, -1, 1, 2, 3]), 1, max); set.add(v); }
+  ct.opts = shuffle([...set]);
+  speak(prefix + (ct.lvl === 3 ? TX.plus[lang](ct.a, ct.b) : L(TX.howMany)));
+}
+function countTap(x, y){
+  const g = countGeom();
+  if (ct.nextAt) return;
+  for (let i = 0; i < 3; i++) {
+    const p = g.optPos(i);
+    if (Math.abs(x - p.x) < g.card*.6 && Math.abs(y - p.y) < g.card*.65) {
+      const v = ct.opts[i];
+      if (v === ct.n) {
+        sfx.success(); addStar(p.x, p.y); ct.okAt = now;
+        ct.streak++;
+        let text = TX.countRight[lang](v);
+        if (ct.streak >= 3 && ct.lvl < 3) { ct.lvl++; ct.streak = 0; text += ' ' + L(TX.levelUp); }
+        speak(text); ct.nextAt = now + 2.8;
+      } else {
+        ct.shake = {i, t:.5}; sfx.soft(); ct.streak = 0;
+        speak(TX.countWrong[lang](v));
+      }
+      return;
+    }
+  }
+}
+function updateCount(dt){ ct.shake.t = Math.max(0, ct.shake.t - dt); if (ct.nextAt && now > ct.nextAt) newCount(); }
+function drawApple(c, x, y, s){
+  circ(c, x - s*.3, y - s*.05, s*.6, '#e63946'); circ(c, x + s*.3, y - s*.05, s*.6, '#e63946'); ell(c, x, y + s*.15, s*.7, s*.68, '#e63946');
+  c.strokeStyle = '#7a4a2a'; c.lineWidth = s*.1; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, y - s*.45); c.lineTo(x + s*.08, y - s*.85); c.stroke();
+  ell(c, x + s*.35, y - s*.8, s*.27, s*.12, '#4aa53f', -.5);
+  ell(c, x - s*.3, y - s*.2, s*.15, s*.09, 'rgba(255,255,255,.4)', -.6);
+}
+function renderCount(){
+  const c = ctx, a = area, g = countGeom();
+  bgPaper();
+  const h = g.bot - g.top;
+  const groups = ct.lvl === 3 ? [ct.a, ct.b] : [ct.n];
+  const gw = a.w/groups.length;
+  groups.forEach((n, gi) => {
+    const cols = n <= 3 ? n : n <= 6 ? 3 : 5, rows = Math.ceil(n/cols);
+    const cell = Math.min(gw*.8/cols, h*.8/rows, 90), s = cell*.36;
+    const cx = a.x0 + gw*(gi + .5), cy = g.top + h/2;
+    for (let i = 0; i < n; i++) {
+      const col = i % cols, row = Math.floor(i/cols), inRow = Math.min(cols, n - row*cols);
+      const x = cx + (col - (inRow - 1)/2)*cell, y = cy + (row - (rows - 1)/2)*cell;
+      const hop = ct.okAt ? Math.abs(Math.sin((now - ct.okAt)*8 + i*.6))*s*.4 : 0;
+      drawApple(c, x, y - hop, s);
+    }
+  });
+  if (ct.lvl === 3) {
+    c.fillStyle = '#3f7de8'; c.font = `900 ${g.card*.8}px Nunito, system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('+', a.cx, g.top + h/2);
+  }
+  // уровень: звёздочки сверху справа под панелью
+  ct.opts.forEach((v, i) => {
+    const p = g.optPos(i);
+    drawCard(c, p.x, p.y + Math.sin(now*2.5 + i)*3, g.card, g.card*1.1, String(v), {shake:ct.shake.i === i ? ct.shake.t : 0,
+      bg:ct.nextAt && v === ct.n ? '#fff3b0' : '#fff', border:ct.nextAt && v === ct.n ? '#ffb21c' : '#3f7de8'});
+  });
+}
+
+kitStart({
+  key:'abc', icon:'🔤', title:{ru:'Читаем и считаем', kk:'Оқимыз да санаймыз'},
+  modes:[
+    {id:'syl',   icon:'🗣', name:{ru:'Слоги', kk:'Буындар'}},
+    {id:'word',  icon:'🔤', name:{ru:'Слово', kk:'Сөз'}},
+    {id:'count', icon:'🔢', name:{ru:'Счёт', kk:'Санау'}}
+  ],
+  setMode(m){
+    subTop = true;
+    if (m === 'syl') newSyl();
+    else if (m === 'word') { wd.idx = -1; newWord(); }
+    else { ct.lvl = 1; ct.streak = 0; newCount(); }
+  },
+  lang(){
+    // язык поменялся — начинаем задание заново на новом языке
+    if (mode === 'syl') newSyl(); else if (mode === 'word') { wd.idx = -1; newWord(); } else newCount();
+  },
+  update(dt){ if (mode === 'syl') updateSyl(dt); else if (mode === 'word') updateWord(dt); else updateCount(dt); },
+  render(){ if (mode === 'syl') renderSyl(); else if (mode === 'word') renderWord(); else renderCount(); },
+  down(x, y){ if (mode === 'syl') sylTap(x, y); else if (mode === 'word') wordTap(x, y); else countTap(x, y); }
+});
+</script>
+</body>
+</html>

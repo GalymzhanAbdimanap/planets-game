@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2a2468">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Истории</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<script src="kit.js"></script>
+<script>
+'use strict';
+/* =========================================================
+   ИСТОРИИ — интерактивные мультики, где ребёнок помогает героям.
+   Прототип «движка историй» из ТЗ (раздел 4.9):
+   история = данные (сцены, персонажи, задание), движок их проигрывает.
+
+   Типы заданий:
+     tap     — нажать на персонажа или предмет
+     search  — заглянуть в укрытия и найти нужный предмет
+     steps   — пройти по следам, считая шаги
+     collect — положить в цель N нужных предметов
+     choose  — выбрать подходящий предмет (верных может быть несколько)
+     tapN    — нажать на цель N раз (с подсчётом)
+     end     — финал: праздник, звёздочка, «ещё раз»
+   Координаты fx/fy — доли игровой области, размеры s — в «юнитах» (1/10 короткой стороны).
+   ========================================================= */
+const NUM = {ru:['Один!','Два!','Три!','Четыре!','Пять!'], kk:['Бір!','Екі!','Үш!','Төрт!','Бес!']};
+const NAMES = {
+  carrot:{ru:'морковка', kk:'сәбіз'}, tomato:{ru:'помидор', kk:'қызанақ'}, banana:{ru:'банан', kk:'банан'},
+  broccoli:{ru:'брокколи', kk:'брокколи'}
+};
+
+const STORIES = {
+  /* ---------- «Бабай потерял шапку» ---------- */
+  hat: {
+    title:{ru:'Бабай потерял шапку', kk:'Бабай телпегін жоғалтты'},
+    scenes: [
+      { bg:'room',
+        actors:[{id:'babai', kind:'babai', fx:.5, fy:.5, s:2.3, mood:'sad', color:'#7b5cd6'}],
+        say:{ru:'Жил-был Бабай. Утром он проснулся и… ой! Его любимая красная шапка пропала. Бабаю грустно.',
+             kk:'Ертеде Бабай болыпты. Таңертең оянса… ой! Сүйікті қызыл телпегі жоқ. Бабайдың көңілі түсіп кетті.'},
+        task:{type:'tap', target:'babai', mood:'happy',
+          prompt:{ru:'Обними Бабая — нажми на него!', kk:'Бабайды құшақта — оны бас!'},
+          right:{ru:'Спасибо! Мне уже лучше. Поможешь найти шапку?', kk:'Рақмет! Көңілім көтерілді. Телпегімді табуға көмектесесің бе?'}} },
+      { bg:'room',
+        actors:[{id:'babai', kind:'babai', fx:.5, fy:.3, s:1.3, mood:'normal', color:'#7b5cd6'}],
+        task:{type:'search', answer:'hatRed', shuffle:true,
+          spots:[{cover:'box', fx:.2, fy:.74}, {cover:'basket', fx:.5, fy:.8}, {cover:'pillow', fx:.8, fy:.72}],
+          hidden:['hatBlue','cat','hatRed'],
+          prompt:{ru:'Где же шапка? Загляни в коробку, в корзинку и под подушку!', kk:'Телпек қайда екен? Қорапқа, себетке және жастықтың астына қара!'},
+          wrong:{hatBlue:{ru:'Это синяя шапка. А у Бабая была красная!', kk:'Бұл көк телпек. Ал Бабайдікі қызыл еді!'},
+                 cat:{ru:'Тут спит котик. Мяу!', kk:'Мұнда мысық ұйықтап жатыр. Мияу!'}},
+          right:{ru:'Нашли! Вот она, красная шапка!', kk:'Таптық! Міне, қызыл телпек!'}} },
+      { bg:'outside',
+        actors:[{id:'babai', kind:'babai', fx:.12, fy:.58, s:1.2, mood:'happy', color:'#7b5cd6', hat:'#e8483f'},
+                {id:'house', kind:'house', fx:.88, fy:.52, s:1.6}],
+        task:{type:'steps', actor:'babai', n:5, from:.27, to:.75, fy:.72,
+          prompt:{ru:'Бабай надел шапку и идёт в гости к другу. Нажимай на следы и считай шаги!', kk:'Бабай телпегін киіп, досына қонаққа барады. Іздерді басып, қадамдарды сана!'},
+          right:{ru:'Пять шагов — и мы пришли!', kk:'Бес қадам — келдік!'}} },
+      { bg:'outside',
+        actors:[{id:'babai', kind:'babai', fx:.28, fy:.5, s:1.5, mood:'happy', color:'#7b5cd6', hat:'#e8483f'},
+                {id:'monster', kind:'monster', fx:.7, fy:.5, s:1.5, mood:'sad'}],
+        say:{ru:'А вот и друг — монстрик. Но он грустит: ему не с кем играть.', kk:'Міне, досы — құбыжық. Бірақ ол мұңайып отыр: ойнайтын досы жоқ.'},
+        task:{type:'choose', cheer:'monster',
+          items:[{obj:'heart', fx:.22, fy:.84, ok:true, say:{ru:'Обнимашки! Монстрик улыбается.', kk:'Құшақтадық! Құбыжық күлімдеп тұр.'}},
+                 {obj:'apple', fx:.5, fy:.84, ok:true, say:{ru:'Угостили яблоком! Монстрик рад.', kk:'Алма бердік! Құбыжық қуанды.'}},
+                 {obj:'ball', fx:.78, fy:.84, ok:true, say:{ru:'Давай играть в мяч! Монстрик смеётся.', kk:'Доп ойнайық! Құбыжық күліп жатыр.'}}],
+          prompt:{ru:'Как его развеселить? Выбери!', kk:'Оны қалай қуантамыз? Таңда!'}} },
+      { bg:'outside', dance:true,
+        actors:[{id:'babai', kind:'babai', fx:.33, fy:.55, s:1.6, mood:'happy', color:'#7b5cd6', hat:'#e8483f'},
+                {id:'monster', kind:'monster', fx:.67, fy:.55, s:1.6, mood:'happy'}],
+        say:{ru:'Бабай и монстрик играли до самого вечера. Как хорошо, когда есть друзья! Конец.', kk:'Бабай мен құбыжық кешке дейін ойнады. Досың болғаны қандай жақсы! Соңы.'},
+        task:{type:'end'} }
+    ]
+  },
+
+  /* ---------- «Монстрик варит суп» ---------- */
+  soup: {
+    title:{ru:'Монстрик варит суп', kk:'Құбыжық сорпа пісіреді'},
+    scenes: [
+      { bg:'kitchen',
+        actors:[{id:'monster', kind:'monster', fx:.27, fy:.5, s:1.8, mood:'normal'}, {id:'pot', kind:'pot', fx:.7, fy:.55, s:1.8}],
+        say:{ru:'Монстрик проголодался и решил сварить суп!', kk:'Құбыжықтың қарны ашып, сорпа пісірмек болды!'},
+        task:{type:'tap', target:'pot', fire:true,
+          prompt:{ru:'Нажми на кастрюлю — зажжём огонь!', kk:'Қазанды бас — от жағайық!'},
+          right:{ru:'Огонь горит, вода греется!', kk:'От жанып тұр, су жылынып жатыр!'}} },
+      { bg:'kitchen', fire:true,
+        actors:[{id:'monster', kind:'monster', fx:.2, fy:.36, s:1.3, mood:'happy'}, {id:'pot', kind:'pot', fx:.62, fy:.42, s:1.6}],
+        task:{type:'collect', target:'pot', need:'carrot', n:3, shuffle:true,
+          items:['carrot','tomato','carrot','banana','carrot','carrot'], fy:.82,
+          prompt:{ru:'Положи в суп три морковки!', kk:'Сорпаға үш сәбіз сал!'},
+          wrong:{ru:n => `Это ${n}. А нужна морковка!`, kk:n => `Бұл — ${n}. Бізге сәбіз керек!`},
+          right:{ru:'Три морковки в супе!', kk:'Сорпада үш сәбіз!'}} },
+      { bg:'kitchen', fire:true,
+        actors:[{id:'monster', kind:'monster', fx:.2, fy:.36, s:1.3, mood:'happy'}, {id:'pot', kind:'pot', fx:.62, fy:.42, s:1.6}],
+        task:{type:'choose', into:'pot', shuffle:true,
+          items:[{obj:'broccoli', ok:true, say:{ru:'Брокколи зелёная! Бульк!', kk:'Брокколи жасыл! Былқ!'}},
+                 {obj:'tomato', say:{ru:'Это помидор, он красный.', kk:'Бұл — қызанақ, ол қызыл.'}},
+                 {obj:'banana', say:{ru:'Это банан, он жёлтый. Банан в суп не кладут!', kk:'Бұл — банан, ол сары. Сорпаға банан салмайды!'}}],
+          fy:.82, prompt:{ru:'А теперь положи что-нибудь зелёное!', kk:'Енді жасыл бірдеңе сал!'}} },
+      { bg:'kitchen', fire:true,
+        actors:[{id:'monster', kind:'monster', fx:.2, fy:.36, s:1.3, mood:'normal'}, {id:'pot', kind:'pot', fx:.62, fy:.42, s:1.6}],
+        task:{type:'choose', into:'pot', shuffle:true,
+          // буква на баночке зависит от языка: соль — «С», тұз — «Т»
+          items:[{obj:'jar', label:{ru:'С', kk:'Т'}, ok:true, say:{ru:'С — соль! Чуть-чуть посолим.', kk:'Т — тұз! Сәл тұздайық.'}},
+                 {obj:'jar', label:{ru:'М', kk:'М'}, say:{ru:'Тут буква М. А соль начинается на С!', kk:'Мұнда М әрпі. Ал тұз Т әрпінен басталады!'}},
+                 {obj:'jar', label:{ru:'Т', kk:'С'}, say:{ru:'Тут буква Т. А соль начинается на С!', kk:'Мұнда С әрпі. Ал тұз Т әрпінен басталады!'}}],
+          fy:.82, prompt:{ru:'Нужна соль. Найди баночку с буквой С!', kk:'Тұз керек. Т әрпі бар банканы тап!'}} },
+      { bg:'kitchen', fire:true,
+        actors:[{id:'monster', kind:'monster', fx:.2, fy:.36, s:1.3, mood:'happy'}, {id:'pot', kind:'pot', fx:.62, fy:.5, s:2.0}],
+        task:{type:'tapN', target:'pot', n:3,
+          prompt:{ru:'Помешай суп три раза — нажимай на кастрюлю!', kk:'Сорпаны үш рет араластыр — қазанды бас!'},
+          right:{ru:'Суп готов!', kk:'Сорпа дайын!'}} },
+      { bg:'kitchen', fire:false, dance:true,
+        actors:[{id:'monster', kind:'monster', fx:.4, fy:.5, s:1.9, mood:'happy'}, {id:'pot', kind:'pot', fx:.75, fy:.6, s:1.3}],
+        say:{ru:'Монстрик попробовал: ммм, как вкусно! Спасибо, повар! Конец.', kk:'Құбыжық дәмін татты: ммм, қандай дәмді! Рақмет, аспазшы! Соңы.'},
+        task:{type:'end'} }
+    ]
+  }
+};
+
+/* =========================================================
+   РИСУНКИ
+   ========================================================= */
+function drawBabai(c, x, y, s, o = {}){
+  const col = o.color || '#7b5cd6';
+  for (const sd of [-1, 1]) { ell(c, x + sd*s*.4, y + s*.95, s*.28, s*.15, col); ell(c, x + sd*s*.4, y + s*.95, s*.28, s*.15, 'rgba(0,0,0,.25)'); }
+  c.fillStyle = col;
+  for (let i = 0; i < 16; i++) { const a = i/16*Math.PI*2; c.beginPath(); c.arc(x + Math.cos(a)*s*.82, y + Math.sin(a)*s*.9, s*.2, 0, 7); c.fill(); }
+  ell(c, x, y, s*.9, s*.98, col);
+  for (const sd of [-1, 1]) circ(c, x + sd*s, y + s*.2, s*.2, col);
+  c.fillStyle = '#ffe9b0';
+  for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(x + sd*s*.3, y - s*.88); c.lineTo(x + sd*s*.56, y - s*1.32); c.lineTo(x + sd*s*.66, y - s*.78); c.closePath(); c.fill(); }
+  ell(c, x, y + s*.42, s*.5, s*.42, 'rgba(255,255,255,.16)');
+  c.fillStyle = shade(c, x, y, s); c.beginPath(); c.ellipse(x, y, s*.9, s*.98, 0, 0, 7); c.fill();
+  drawFace(c, x, y - s*.12, s*.62, {mood:o.mood, seed:x*.01});
+  if (o.hat) drawBeanie(c, x, y - s*.55, s*.72, o.hat);
+}
+function drawBeanie(c, x, y, s, hex){
+  c.fillStyle = hex; c.beginPath(); c.ellipse(x, y, s*1.0, s*.8, 0, Math.PI, Math.PI*2); c.fill();
+  rr(c, x - s*1.05, y - s*.2, s*2.1, s*.3, s*.14); c.fill();
+  rr(c, x - s*1.05, y - s*.2, s*2.1, s*.3, s*.14); c.fillStyle = 'rgba(0,0,0,.18)'; c.fill();
+  circ(c, x, y - s*.83, s*.22, '#fff');
+}
+function drawMonster(c, x, y, s, o = {}){
+  const col = '#4fc3c9';
+  for (const sd of [-1, 1]) { ell(c, x + sd*s*.45, y + s*1.0, s*.3, s*.16, '#3a9aa0'); circ(c, x + sd*s*1.05, y + s*.15, s*.22, col); }
+  c.fillStyle = '#ffe9b0';
+  for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(x + sd*s*.35, y - s*.85); c.lineTo(x + sd*s*.62, y - s*1.35); c.lineTo(x + sd*s*.72, y - s*.72); c.closePath(); c.fill(); }
+  ell(c, x, y, s, s*1.02, col);
+  for (const [dx, dy, r] of [[-.6, .55, .12], [.65, .4, .1], [-.7, -.1, .08]]) circ(c, x + dx*s, y + dy*s, r*s, 'rgba(255,255,255,.25)');
+  c.fillStyle = shade(c, x, y, s); c.beginPath(); c.arc(x, y, s, 0, 7); c.fill();
+  drawFace(c, x, y - s*.1, s*.75, {mood:o.mood, seed:5});
+}
+function drawHouse(c, x, y, s){
+  c.fillStyle = '#ffe0a3'; c.fillRect(x - s*.9, y - s*.3, s*1.8, s*1.2);
+  c.fillStyle = '#4fc3c9'; c.beginPath(); c.moveTo(x - s*1.15, y - s*.3); c.lineTo(x, y - s*1.2); c.lineTo(x + s*1.15, y - s*.3); c.closePath(); c.fill();
+  rr(c, x - s*.25, y + s*.3, s*.5, s*.6, s*.08); c.fillStyle = '#a8703e'; c.fill();
+  rr(c, x + s*.35, y - s*.05, s*.35, s*.35, s*.05); c.fillStyle = '#9adfff'; c.fill();
+}
+function drawPot(c, x, y, s, fire, stir){
+  if (fire) for (const dx of [-.4, 0, .4]) { const h = s*.35*(1 + .2*Math.sin(now*14 + dx*9)); c.fillStyle = '#ff8a2e'; c.beginPath(); c.moveTo(x + dx*s - s*.15, y + s*.75); c.quadraticCurveTo(x + dx*s, y + s*.75 - h*2, x + dx*s + s*.15, y + s*.75); c.fill(); }
+  rr(c, x - s*.95, y + s*.72, s*1.9, s*.22, s*.08); c.fillStyle = '#5d6579'; c.fill();
+  rr(c, x - s*.8, y - s*.25, s*1.6, s*1.0, s*.25); c.fillStyle = '#e8483f'; c.fill();
+  for (const sd of [-1, 1]) { rr(c, x + sd*s*.8 - (sd > 0 ? 0 : s*.25), y - s*.05, s*.25, s*.14, s*.06); c.fill(); }
+  ell(c, x, y - s*.25, s*.8, s*.2, '#ffb26b');
+  if (fire) for (let i = 0; i < 3; i++) { const t = (now*.6 + i/3) % 1; c.globalAlpha = 1 - t; circ(c, x + Math.sin(i*2 + t*6)*s*.3, y - s*.4 - t*s*1.1, s*(.12 + t*.12), '#ffffff'); c.globalAlpha = 1; }
+  if (stir !== undefined) { c.save(); c.translate(x, y - s*.3); c.rotate(Math.sin(stir)*.5); rr(c, -s*.06, -s*1.1, s*.12, s*1.1, s*.06); c.fillStyle = '#a8703e'; c.fill(); c.restore(); }
+}
+function drawVeg(c, id, x, y, s){
+  const G = '#4aa53f';
+  c.save(); c.translate(x, y);
+  if (id === 'carrot') {
+    for (const [dx, r] of [[-.35, -.5], [0, 0], [.35, .5]]) ell(c, dx*s, -s*1.15, s*.17, s*.45, G, r);
+    c.fillStyle = '#ff8c2e'; c.beginPath(); c.moveTo(-s*.7, -s*.7); c.quadraticCurveTo(0, -s*1.1, s*.7, -s*.7);
+    c.quadraticCurveTo(s*.5, s*.65, 0, s*1.3); c.quadraticCurveTo(-s*.5, s*.65, -s*.7, -s*.7); c.fill();
+  } else if (id === 'tomato') {
+    ell(c, 0, s*.05, s*1.05, s*.95, '#ef4b3f'); c.fillStyle = G; starPath(c, 0, -s*.82, s*.42, 0); c.fill();
+  } else if (id === 'banana') {
+    c.strokeStyle = '#ffd93b'; c.lineWidth = s*.85; c.lineCap = 'round';
+    c.beginPath(); c.arc(0, -s*1.15, s*1.4, Math.PI*.24, Math.PI*.76); c.stroke();
+  } else if (id === 'broccoli') {
+    rr(c, -s*.36, -s*.1, s*.72, s*1.25, s*.2); c.fillStyle = '#a6db86'; c.fill();
+    for (const [dx, dy, r] of [[-.62, -.3, .5], [.62, -.3, .5], [0, -.7, .58], [-.32, -.1, .48], [.32, -.1, .48]]) circ(c, dx*s, dy*s, r*s, '#3f9a4a');
+  } else if (id === 'apple') {
+    circ(c, -s*.36, -s*.05, s*.72, '#e63946'); circ(c, s*.36, -s*.05, s*.72, '#e63946'); ell(c, 0, s*.2, s*.85, s*.8, '#e63946');
+    c.strokeStyle = '#7a4a2a'; c.lineWidth = s*.1; c.lineCap = 'round'; c.beginPath(); c.moveTo(0, -s*.55); c.lineTo(s*.1, -s*1.0); c.stroke();
+    ell(c, s*.42, -s*.95, s*.32, s*.15, G, -.5);
+  }
+  ell(c, -s*.35, -s*.45, s*.2, s*.11, 'rgba(255,255,255,.3)', -.6);
+  c.restore();
+}
+function drawObj(c, obj, x, y, s, label){
+  if (obj === 'hatRed' || obj === 'hatBlue') { drawBeanie(c, x, y + s*.4, s*.95, obj === 'hatRed' ? '#e8483f' : '#3f7de8'); return; }
+  if (obj === 'cat') {
+    const g = '#9aa0ab'; c.fillStyle = g;
+    for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(x + sd*s*.15, y - s*.45); c.lineTo(x + sd*s*.5, y - s*.85); c.lineTo(x + sd*s*.58, y - s*.25); c.closePath(); c.fill(); }
+    circ(c, x, y - s*.05, s*.6, g); drawFace(c, x, y - s*.05, s*.5, {mood:'sleep', noCheeks:true}); return;
+  }
+  if (obj === 'heart') {
+    c.fillStyle = '#ff5a7a'; c.beginPath(); c.moveTo(x, y + s*.85);
+    c.bezierCurveTo(x - s*1.4, y - s*.1, x - s*.7, y - s*1.1, x, y - s*.4); c.bezierCurveTo(x + s*.7, y - s*1.1, x + s*1.4, y - s*.1, x, y + s*.85); c.fill();
+    ell(c, x - s*.4, y - s*.35, s*.18, s*.1, 'rgba(255,255,255,.45)', -.6); return;
+  }
+  if (obj === 'ball') {
+    circ(c, x, y, s*.85, '#3f7de8');
+    c.save(); c.beginPath(); c.arc(x, y, s*.85, 0, 7); c.clip();
+    c.fillStyle = '#ffd23f'; c.fillRect(x - s, y - s*.2, s*2, s*.4); c.fillStyle = '#fff'; c.fillRect(x - s*.2, y - s, s*.4, s*2); c.restore();
+    ell(c, x - s*.3, y - s*.4, s*.2, s*.12, 'rgba(255,255,255,.45)', -.6); return;
+  }
+  if (obj === 'jar') {
+    rr(c, x - s*.6, y - s*.7, s*1.2, s*1.5, s*.25); c.fillStyle = 'rgba(220,240,255,.95)'; c.fill();
+    rr(c, x - s*.65, y - s*.95, s*1.3, s*.35, s*.1); c.fillStyle = '#e8483f'; c.fill();
+    rr(c, x - s*.45, y - s*.4, s*.9, s*.9, s*.12); c.fillStyle = '#fff'; c.fill();
+    c.fillStyle = '#2a1d4d'; c.font = `900 ${s*.8}px Nunito, system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(label || '', x, y + s*.07); return;
+  }
+  drawVeg(c, obj, x, y, s*.75);
+}
+function drawCover(c, kind, x, y, s, open){
+  const k = easeOut(clamp(open, 0, 1));
+  if (kind === 'box') {
+    rr(c, x - s, y - s*.2, s*2, s*1.1, s*.12); c.fillStyle = '#c98d55'; c.fill();
+    c.save(); c.translate(x - s, y - s*.2); c.rotate(-k*1.9); rr(c, 0, -s*.25, s*2, s*.3, s*.1); c.fillStyle = '#b37a45'; c.fill(); c.restore();
+  } else if (kind === 'basket') {
+    c.fillStyle = '#e8a04a'; c.beginPath(); c.moveTo(x - s*1.05, y - s*.15); c.lineTo(x + s*1.05, y - s*.15); c.lineTo(x + s*.8, y + s*.9); c.lineTo(x - s*.8, y + s*.9); c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(120,60,10,.35)'; c.lineWidth = s*.08; for (let i = 0; i < 4; i++) { c.beginPath(); c.moveTo(x - s*.95 + i*s*.05, y + s*.1 + i*s*.22); c.lineTo(x + s*.95 - i*s*.05, y + s*.1 + i*s*.22); c.stroke(); }
+    if (k < 1) { c.globalAlpha = 1 - k; ell(c, x, y - s*.2, s*1.1, s*.35, '#7fc8f0'); c.globalAlpha = 1; }
+  } else {
+    c.save(); c.translate(x + k*s*1.4, y - k*s*.3); c.rotate(k*.5);
+    rr(c, -s*1.1, -s*.45, s*2.2, s*.9, s*.4); c.fillStyle = '#fff'; c.fill();
+    c.strokeStyle = '#d6dbe8'; c.lineWidth = s*.06; c.stroke(); c.restore();
+  }
+}
+function drawBg(kind){
+  const c = ctx, a = area, fy = a.y0 + a.h*.62;
+  if (kind === 'room') {
+    c.fillStyle = '#8fb0ff'; c.fillRect(0, 0, W, fy);
+    for (let yy = 20; yy < fy; yy += 46) for (let xx = (yy/46 % 2)*23; xx < W; xx += 46) circ(c, xx, yy, 4, 'rgba(255,255,255,.25)');
+    c.fillStyle = '#c99466'; c.fillRect(0, fy, W, H - fy); c.fillStyle = '#f3ead8'; c.fillRect(0, fy - 8, W, 8);
+    const u = Math.min(a.w, a.h)/10, wx = a.x0 + a.w*.82, wy = a.y0 + u*1.4;
+    rr(c, wx - u*.95, wy - u*.95, u*1.9, u*1.9, u*.15); c.fillStyle = '#fff'; c.fill();
+    rr(c, wx - u*.8, wy - u*.8, u*1.6, u*1.6, u*.08); c.fillStyle = '#ffd98a'; c.fill(); circ(c, wx, wy, u*.35, '#ffb21c');
+  } else if (kind === 'outside') {
+    const g = c.createLinearGradient(0, 0, 0, fy); g.addColorStop(0, '#7fd0f5'); g.addColorStop(1, '#d4f3ff');
+    c.fillStyle = g; c.fillRect(0, 0, W, fy); c.fillStyle = '#7ac74f'; c.fillRect(0, fy, W, H - fy);
+    const u = Math.min(a.w, a.h)/10;
+    circ(c, a.x0 + a.w*.15, a.y0 + u*1.3, u*.8, '#ffd93b');
+    for (const [fx, k] of [[.45, 1], [.75, .7]]) { const x = a.x0 + a.w*fx + Math.sin(now*.15 + fx*7)*u, y = a.y0 + u*(1 + k); for (const [dx, r] of [[0, .5], [.55, .4], [-.5, .36]]) circ(c, x + dx*u*k, y, r*u*k, 'rgba(255,255,255,.9)'); }
+    for (let i = 0; i < 9; i++) circ(c, (i*173) % W, fy + 20 + (i*97) % (H - fy), 4, '#ffe36b');
+  } else {
+    c.fillStyle = '#fff3d6'; c.fillRect(0, 0, W, fy);
+    c.strokeStyle = 'rgba(200,160,100,.25)'; c.lineWidth = 2;
+    for (let x = 0; x < W; x += 40) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, fy); c.stroke(); }
+    for (let y = 0; y < fy; y += 40) { c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke(); }
+    c.fillStyle = '#a8703e'; c.fillRect(0, fy, W, H - fy); c.fillStyle = '#8a5a3c'; c.fillRect(0, fy, W, 10);
+  }
+}
+
+/* =========================================================
+   ДВИЖОК
+   ========================================================= */
+let st = {id:'hat', i:-1, sc:null, items:[], t:0, done:false, count:0, idleAt:0, hintAt:0, moods:{}, pos:{}, stir:0};
+const U = () => Math.min(area.w, area.h)/10;
+const P = (fx, fy) => ({x:area.x0 + area.w*fx, y:area.y0 + area.h*fy});
+
+function startStory(id){ st = {id, i:-1, moods:{}, pos:{}}; nextScene(); }
+function nextScene(){
+  st.i++;
+  const sc = STORIES[st.id].scenes[st.i];
+  if (!sc) return;
+  st.sc = sc; st.t = 0; st.done = false; st.count = 0; st.stir = 0; st.idleAt = now + 9; st.hintAt = 0;
+  st.moods = {}; st.pos = {};
+  st.fire = !!sc.fire;
+  const tk = sc.task;
+  // предметы задания
+  st.items = [];
+  if (tk.type === 'search') {
+    const hidden = tk.shuffle ? shuffle(tk.hidden.slice()) : tk.hidden;
+    st.items = tk.spots.map((sp, i) => ({...sp, obj:hidden[i], open:0, opened:false}));
+  } else if (tk.type === 'collect') {
+    const list = tk.shuffle ? shuffle(tk.items.slice()) : tk.items;
+    st.items = list.map((obj, i) => ({obj, fx:(i + .5)/list.length, fy:tk.fy, gone:false, fly:-1}));
+  } else if (tk.type === 'choose') {
+    const list = tk.shuffle ? shuffle(tk.items.slice()) : tk.items.slice();
+    st.items = list.map((it, i) => ({...it, fx:it.fx !== undefined ? it.fx : (i + .5)/list.length, fy:it.fy !== undefined ? it.fy : tk.fy, gone:false, fly:-1}));
+  } else if (tk.type === 'steps') {
+    for (let i = 0; i < tk.n; i++) st.items.push({fx:lerp(tk.from, tk.to, i/(tk.n - 1)), fy:tk.fy + (i % 2 ? .035 : -.035), done:false});
+  }
+  const text = [L(sc.say), L(tk.prompt)].filter(Boolean).join(' ');
+  st.idleAt = now + 6 + text.length*.08;   // подсказка не перебивает рассказ
+  if (tk.type === 'end') {
+    speak(text, () => { if (mode === st.id) showAgain(() => startStory(st.id)); });
+    addStar();
+    setTimeout(() => { if (mode === st.id && st.sc === sc) celebrate(); }, 400);
+  } else speak(text);
+}
+// сцена выполнена: похвала, затем следующая
+function solved(text){
+  st.done = true;
+  sfx.success();
+  speak(text, () => setTimeout(() => { if (st.done && mode === st.id) nextScene(); }, 500));
+}
+function actorAt(id){
+  const a = st.sc.actors.find(v => v.id === id); if (!a) return null;
+  const p = st.pos[id] || P(a.fx, a.fy);
+  return {a, x:p.x, y:p.y, s:a.s*U()};
+}
+function hitActor(id, x, y){ const r = actorAt(id); return r && Math.hypot(x - r.x, y - r.y) < r.s*1.25; }
+
+function storyTap(x, y){
+  if (!st.sc || st.done || st.t < .3) return;
+  st.idleAt = now + 9;
+  const tk = st.sc.task, u = U();
+  if (tk.type === 'tap') {
+    if (hitActor(tk.target, x, y)) {
+      if (tk.mood) st.moods[tk.target] = tk.mood;
+      if (tk.fire) st.fire = true;
+      const r = actorAt(tk.target); burst(r.x, r.y - r.s*.5, 20, 1, tk.fire ? ['#ff8a2e','#ffd23f'] : ['#ff5a7a','#ff8fa3','#ffd23f']);
+      solved(L(tk.right));
+    }
+  } else if (tk.type === 'search') {
+    for (const it of st.items) {
+      const p = P(it.fx, it.fy);
+      if (it.opened || Math.hypot(x - p.x, y - p.y) > u*1.5) continue;
+      it.opened = true; sfx.open();
+      if (it.obj === tk.answer) { burst(p.x, p.y - u, 22, 1); solved(L(tk.right)); }
+      else { if (it.obj === 'cat') setTimeout(() => sfx.meow(), 250); speak(L(tk.wrong[it.obj])); }
+      return;
+    }
+  } else if (tk.type === 'steps') {
+    const next = st.items.find(f => !f.done);
+    let hit = false;
+    for (const f of st.items) { const p = P(f.fx, f.fy); if (!f.done && Math.hypot(x - p.x, y - p.y) < u*1.2) hit = true; }
+    if (!hit || !next) return;
+    next.done = true; st.count++;
+    const p = P(next.fx, next.fy);
+    st.pos[tk.actor] = {x:p.x, y:p.y - u*1.0};
+    sfx.boing(); burst(p.x, p.y, 8, .6);
+    if (st.count >= tk.n) solved(NUM[lang][tk.n - 1] + ' ' + L(tk.right));
+    else speak(NUM[lang][st.count - 1]);
+  } else if (tk.type === 'collect' || tk.type === 'choose') {
+    for (const it of st.items) {
+      if (it.gone) continue;
+      const p = P(it.fx, it.fy);
+      if (Math.hypot(x - p.x, y - p.y) > u*1.3) continue;
+      if (tk.type === 'collect') {
+        if (it.obj === tk.need) {
+          it.gone = true; it.fly = now; st.count++; sfx.chomp();
+          if (st.count >= tk.n) solved(NUM[lang][tk.n - 1] + ' ' + L(tk.right));
+          else speak(NUM[lang][st.count - 1]);
+        } else { sfx.soft(); it.shake = now; speak(tk.wrong[lang](L(NAMES[it.obj]))); }
+      } else {
+        if (it.ok) {
+          if (tk.into) { it.gone = true; it.fly = now; sfx.chomp(); }
+          if (tk.cheer) { st.moods[tk.cheer] = 'happy'; const r = actorAt(tk.cheer); burst(r.x, r.y - r.s*.6, 20, 1, ['#ff5a7a','#ff8fa3','#ffd23f']); }
+          solved(L(it.say));
+        } else { sfx.soft(); it.shake = now; speak(L(it.say) + ' ' + L(TRY_AGAIN)); }
+      }
+      return;
+    }
+  } else if (tk.type === 'tapN') {
+    if (!hitActor(tk.target, x, y)) return;
+    st.count++; st.stir += 2.2; sfx.splash();
+    const r = actorAt(tk.target); burst(r.x, r.y - r.s*.3, 8, .6, ['#ffffff','#ffb26b']);
+    if (st.count >= tk.n) solved(NUM[lang][tk.n - 1] + ' ' + L(tk.right));
+    else speak(NUM[lang][st.count - 1]);
+  }
+}
+// куда указывает подсказка при бездействии
+function hintTargets(){
+  const tk = st.sc.task, out = [];
+  if (tk.type === 'tap' || tk.type === 'tapN') { const r = actorAt(tk.target); if (r) out.push({x:r.x, y:r.y, r:r.s*1.15}); }
+  else if (tk.type === 'search') st.items.filter(i => !i.opened).forEach(i => { const p = P(i.fx, i.fy); out.push({x:p.x, y:p.y + U()*.3, r:U()*1.3}); });
+  else if (tk.type === 'steps') { const f = st.items.find(i => !i.done); if (f) { const p = P(f.fx, f.fy); out.push({x:p.x, y:p.y, r:U()*.9}); } }
+  else if (tk.type === 'collect') st.items.filter(i => !i.gone && i.obj === tk.need).forEach(i => { const p = P(i.fx, i.fy); out.push({x:p.x, y:p.y, r:U()*1.1}); });
+  else if (tk.type === 'choose') st.items.filter(i => !i.gone && i.ok).forEach(i => { const p = P(i.fx, i.fy); out.push({x:p.x, y:p.y, r:U()*1.1}); });
+  return out;
+}
+function updateStory(dt){
+  if (!st.sc) return;
+  st.t += dt;
+  // подсказка, если ребёнок долго ничего не делает
+  if (!st.done && st.sc.task.type !== 'end' && now > st.idleAt) {
+    st.hintAt = now; st.idleAt = now + 12;
+    speak(L(st.sc.task.prompt));
+  }
+}
+function renderStory(){
+  const c = ctx, sc = st.sc;
+  if (!sc) { drawBg('room'); return; }
+  drawBg(sc.bg);
+  const u = U(), tk = sc.task;
+  // следы
+  if (tk.type === 'steps') st.items.forEach((f, i) => {
+    const p = P(f.fx, f.fy);
+    c.globalAlpha = f.done ? .35 : 1;
+    ell(c, p.x, p.y, u*.32, u*.45, '#5a3d9a', i % 2 ? .25 : -.25);
+    for (let k = 0; k < 3; k++) circ(c, p.x + (k - 1)*u*.2, p.y - u*.55, u*.1, '#5a3d9a');
+    c.globalAlpha = 1;
+  });
+  // укрытия и найденное
+  if (tk.type === 'search') st.items.forEach(it => {
+    const p = P(it.fx, it.fy);
+    if (it.opened) { it.open = Math.min(1, it.open + frameDt*3); drawObj(c, it.obj, p.x, p.y - u*.2 - easeBack(it.open)*u*.6, u*.9); }
+    drawCover(c, it.cover, p.x, p.y, u*1.1, it.open);
+  });
+  // персонажи
+  for (const a of sc.actors) {
+    const r = actorAt(a.id), mood = st.moods[a.id] || a.mood;
+    let y = r.y;
+    if (sc.dance || (st.done && st.moods[a.id] === 'happy')) y -= Math.abs(Math.sin(now*5 + r.x*.01))*u*.3;
+    else y += Math.sin(now*2 + r.x*.01)*u*.04;
+    if (a.kind !== 'house' && a.kind !== 'pot') shadow(c, r.x, r.y + r.s*1.05, r.s*.8);
+    if (a.kind === 'babai') drawBabai(c, r.x, y, r.s, {mood, color:a.color, hat:a.hat});
+    else if (a.kind === 'monster') drawMonster(c, r.x, y, r.s, {mood});
+    else if (a.kind === 'house') drawHouse(c, r.x, r.y, r.s);
+    else if (a.kind === 'pot') drawPot(c, r.x, r.y, r.s, st.fire, tk.type === 'tapN' ? st.stir + Math.sin(now*3)*.1 : undefined);
+  }
+  // предметы для выбора и сбора
+  if (tk.type === 'collect' || tk.type === 'choose') {
+    const tgt = tk.target || tk.into ? actorAt(tk.target || tk.into) : null;
+    st.items.forEach((it, i) => {
+      const p = P(it.fx, it.fy);
+      let x = p.x, y = p.y + Math.sin(now*2.5 + i)*u*.06, k = 1;
+      if (it.fly >= 0) {
+        const t = clamp((now - it.fly)/.5, 0, 1);
+        if (t >= 1 || !tgt) return;
+        x = lerp(p.x, tgt.x, ease(t)); y = lerp(p.y, tgt.y - tgt.s*.3, ease(t)) - Math.sin(t*Math.PI)*u*1.5; k = 1 - t*.5;
+      }
+      if (it.shake && now - it.shake < .5) x += Math.sin((now - it.shake)*40)*u*.12;
+      ell(c, p.x, p.y + u*.95, u*.9, u*.22, 'rgba(0,0,0,.12)');
+      drawObj(c, it.obj, x, y, u*.85*k, it.label ? L(it.label) : '');
+    });
+  }
+  // подсказка
+  if (started && !st.done && st.hintAt && now - st.hintAt < 6) for (const h of hintTargets()) ring(c, h.x, h.y, h.r);
+  // счётчик шагов / предметов
+  if (!st.done && (tk.type === 'collect' || tk.type === 'tapN' || tk.type === 'steps')) {
+    for (let i = 0; i < tk.n; i++) {
+      const x = area.cx + (i - (tk.n - 1)/2)*u*.75, y = area.y0 + u*.45;
+      circ(c, x, y, u*.28, 'rgba(255,255,255,.6)');
+      if (i < st.count) { c.fillStyle = '#ffb21c'; starPath(c, x, y, u*.28, 0); c.fill(); }
+    }
+  }
+  // плавное появление сцены
+  if (st.t < .45) { c.fillStyle = `rgba(20,15,50,${1 - st.t/.45})`; c.fillRect(0, 0, W, H); }
+}
+
+kitStart({
+  key:'stories', icon:'🎬', title:{ru:'Истории', kk:'Ертегілер'},
+  modes:[
+    {id:'hat',  icon:'🎩', name:{ru:'Шапка', kk:'Телпек'}},
+    {id:'soup', icon:'🍲', name:{ru:'Суп', kk:'Сорпа'}}
+  ],
+  setMode(m, quiet){ subTop = true; if (quiet) { st = {id:m, i:-1, moods:{}, pos:{}}; nextScene(); } else startStory(m); },
+  lang(){ if (st.sc && !st.done) speak([L(st.sc.say), L(st.sc.task.prompt)].filter(Boolean).join(' ')); },
+  update:updateStory,
+  render:renderStory,
+  down:storyTap
+});
+</script>
+</body>
+</html>

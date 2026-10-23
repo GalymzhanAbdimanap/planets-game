@@ -31,16 +31,19 @@
   .tile b{font-size:clamp(17px,4.6vw,24px);font-weight:900;line-height:1.1;text-shadow:0 2px 0 rgba(0,0,0,.2)}
   .tile:nth-child(2) .ico{animation-delay:.4s}.tile:nth-child(3) .ico{animation-delay:.8s}
   .tile:nth-child(4) .ico{animation-delay:1.2s}.tile:nth-child(5) .ico{animation-delay:1.6s}
+  .tile:nth-child(6) .ico{animation-delay:2s}.tile:nth-child(7) .ico{animation-delay:2.4s}
   .t1{background:linear-gradient(160deg,#4b5bd6,#2a2f8f)}
   .t2{background:linear-gradient(160deg,#8a5be0,#5a2fa8)}
   .t3{background:linear-gradient(160deg,#5fcf6a,#2f9a4a)}
   .t4{background:linear-gradient(160deg,#4fb2f0,#2a6fd0)}
   .t5{background:linear-gradient(160deg,#ffb84a,#f0782e)}
-  .t5{grid-column:1 / -1;aspect-ratio:auto;flex-direction:row;gap:16px;padding:18px}
+  .t6{background:linear-gradient(160deg,#ff6f91,#c8406a)}
+  .t7{background:linear-gradient(160deg,#2fc4b2,#1f8a8f)}
+  .t7{grid-column:1 / -1;aspect-ratio:auto;flex-direction:row;gap:16px;padding:18px}
   footer{max-width:900px;margin:22px auto 0;text-align:center;font-size:13px;font-weight:700;color:#9fb0d8;line-height:1.5}
   @media (min-width:700px){
-    main{grid-template-columns:repeat(5,1fr)}
-    .t5{grid-column:auto;aspect-ratio:1/1;flex-direction:column;gap:6px;padding:12px}
+    main{grid-template-columns:repeat(4,1fr)}
+    .t7{grid-column:auto;aspect-ratio:1/1;flex-direction:column;gap:6px;padding:12px}
     .tile .ico{font-size:clamp(48px,8vw,84px)}
     .tile b{font-size:clamp(14px,2vw,20px)}
   }
@@ -58,6 +61,8 @@
   <a class="tile t3" href="veggies.html"><span class="ico">🥕</span><b data-ru="Монстр-огород" data-kk="Құбыжық бақша"></b></a>
   <a class="tile t4" href="police.html"><span class="ico">🚓</span><b data-ru="Полиция" data-kk="Полиция"></b></a>
   <a class="tile t5" href="puppies.html"><span class="ico">🐶</span><b data-ru="Щенки-спасатели" data-kk="Құтқарушы күшіктер"></b></a>
+  <a class="tile t6" href="stories.html"><span class="ico">🎬</span><b data-ru="Истории" data-kk="Ертегілер"></b></a>
+  <a class="tile t7" href="abc.html"><span class="ico">🔤</span><b data-ru="Читаем и считаем" data-kk="Оқимыз да санаймыз"></b></a>
 </main>
 <footer id="note"></footer>
 <script>

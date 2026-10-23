@@ -270,7 +270,7 @@ function ring(c, x, y, r){
 }
 const blinkNow = seed => ((now*.37 + (seed || 0)*1.7) % 3) < .1;
 
-/* Лицо. mood: normal | happy | angry | scared | sleep | yuck.  s — размер лица. */
+/* Лицо. mood: normal | happy | sad | angry | scared | sleep | yuck.  s — размер лица. */
 function drawFace(c, x, y, s, o = {}){
   const mood = o.mood || 'normal', ink = o.ink || '#2b1b3d';
   let lx = (o.lookX !== undefined ? o.lookX : ptr.x) - x, ly = (o.lookY !== undefined ? o.lookY : ptr.y) - y;
@@ -299,6 +299,10 @@ function drawFace(c, x, y, s, o = {}){
       c.strokeStyle = ink; c.lineWidth = Math.max(2, s*.1);
       c.beginPath(); c.moveTo(px + sd*er*1.15, ey - er*1.75); c.lineTo(px - sd*er*.9, ey - er*.85); c.stroke();
     }
+    if (mood === 'sad') {   // брови «домиком»
+      c.strokeStyle = ink; c.lineWidth = Math.max(1.5, s*.07);
+      c.beginPath(); c.moveTo(px + sd*er*1.1, ey - er*1.3); c.lineTo(px - sd*er*.8, ey - er*1.85); c.stroke();
+    }
     if (!o.noCheeks && mood !== 'angry') circ(c, x + sd*s*.62, y + s*.2, s*.14, 'rgba(255,110,150,.4)');
   }
   if (o.noMouth) return;
@@ -310,6 +314,10 @@ function drawFace(c, x, y, s, o = {}){
     rr(c, x - s*.34, my - s*.1, s*.68, s*.3, s*.12); c.fillStyle = '#5a1d2d'; c.fill();
     c.fillStyle = '#fff';
     for (const tx of [-.2, 0, .2]) { c.beginPath(); c.moveTo(x + (tx - .09)*s, my - s*.1); c.lineTo(x + tx*s, my + s*.06); c.lineTo(x + (tx + .09)*s, my - s*.1); c.fill(); }
+  } else if (mood === 'sad') {
+    c.strokeStyle = ink; c.lineWidth = Math.max(1.5, s*.08);
+    c.beginPath(); c.arc(x, my + s*.1, s*.2, Math.PI*1.2, Math.PI*1.8); c.stroke();
+    ell(c, x + s*.42, y + s*.12, s*.06, s*.09, '#7fd0ff');
   } else if (mood === 'scared') {
     ell(c, x, my, s*.15, s*.2, '#5a1d2d');
   } else if (mood === 'sleep') {
